@@ -705,7 +705,84 @@ class CdpBridge {
       const ok = await this.connect();
       if (!ok) return { ok: false, error: 'cdp_not_connected' };
     }
-    return await this.evaluate(EXPRESSION_INJECT_MESSAGE(message));
+
+    const text = String(message || '').trim();
+    if (!text) return { ok: false, error: 'empty_text' };
+
+    try {
+      // 1. Locate editor coordinates
+      const coordRes = await this.evaluate(`(() => {
+        const editor = document.querySelector('div[contenteditable="true"][role="combobox"]') ||
+                       document.querySelector('div[contenteditable="true"][aria-label="Message input"]') ||
+                       document.querySelector('[data-lexical-editor="true"][contenteditable="true"]') ||
+                       document.querySelector('div[contenteditable="true"][role="textbox"]') ||
+                       document.querySelector('div[contenteditable="true"]');
+        if (!editor || editor.offsetParent === null) return null;
+        editor.focus();
+        const r = editor.getBoundingClientRect();
+        return { x: r.left + 20, y: r.top + 10 };
+      })()`);
+
+      if (!coordRes) {
+        return { ok: false, error: 'editor_not_found' };
+      }
+
+      const { x, y } = coordRes;
+
+      // 2. Dispatch mouse click into editor to activate Lexical editor
+      await this.send('Input.dispatchMouseEvent', { type: 'mousePressed', x, y, button: 'left', clickCount: 1 });
+      await this.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x, y, button: 'left', clickCount: 1 });
+      await new Promise(r => setTimeout(r, 60));
+
+      // 3. Clear existing text
+      await this.send('Input.dispatchKeyEvent', {
+        type: 'keyDown', key: 'a', code: 'KeyA',
+        modifiers: 2, windowsVirtualKeyCode: 65, nativeVirtualKeyCode: 65
+      });
+      await this.send('Input.dispatchKeyEvent', {
+        type: 'keyUp', key: 'a', code: 'KeyA',
+        modifiers: 2, windowsVirtualKeyCode: 65, nativeVirtualKeyCode: 65
+      });
+      await this.send('Input.dispatchKeyEvent', {
+        type: 'keyDown', key: 'Backspace', code: 'Backspace',
+        windowsVirtualKeyCode: 8, nativeVirtualKeyCode: 8
+      });
+      await this.send('Input.dispatchKeyEvent', {
+        type: 'keyUp', key: 'Backspace', code: 'Backspace',
+        windowsVirtualKeyCode: 8, nativeVirtualKeyCode: 8
+      });
+      await new Promise(r => setTimeout(r, 60));
+
+      // 4. Native text insertion
+      await this.send('Input.insertText', { text });
+      await new Promise(r => setTimeout(r, 150));
+
+      // 5. Send Button Click & Enter Key
+      const btnCoord = await this.evaluate(`(() => {
+        const btn = document.querySelector('button[data-tooltip-id*="send"], button[aria-label="Send message"], button[aria-label*="Send" i]');
+        if (!btn) return null;
+        const r = btn.getBoundingClientRect();
+        return { x: r.left + r.width / 2, y: r.top + r.height / 2, disabled: btn.disabled };
+      })()`);
+
+      if (btnCoord && !btnCoord.disabled) {
+        await this.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: btnCoord.x, y: btnCoord.y, button: 'left', clickCount: 1 });
+        await this.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: btnCoord.x, y: btnCoord.y, button: 'left', clickCount: 1 });
+      }
+
+      await this.send('Input.dispatchKeyEvent', {
+        type: 'rawKeyDown', key: 'Enter', code: 'Enter',
+        windowsVirtualKeyCode: 13, nativeVirtualKeyCode: 13
+      });
+      await this.send('Input.dispatchKeyEvent', {
+        type: 'keyUp', key: 'Enter', code: 'Enter',
+        windowsVirtualKeyCode: 13, nativeVirtualKeyCode: 13
+      });
+
+      return { ok: true, method: 'native_cdp_injection', length: text.length };
+    } catch (e) {
+      return { ok: false, error: 'injection_exception: ' + e.message };
+    }
   }
 
   async stopGeneration() {
