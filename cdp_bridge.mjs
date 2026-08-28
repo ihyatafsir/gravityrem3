@@ -418,22 +418,9 @@ class CdpBridge {
       // 1. Try specified port
       let targets = await this.fetchTargets(CDP_PORT);
       
-      // 2. Smart fallback if preferred port is offline
-      if ((!targets || !targets.length) && CDP_PORT === 9223) {
-        debugLog('Port 9223 empty, probing primary port 9222...');
-        targets = await this.fetchTargets(9222);
-        if (targets && targets.length) {
-          CDP_PORT = 9222;
-          this.currentTarget = 'vm';
-        }
-      } else if ((!targets || !targets.length) && CDP_PORT === 9222) {
-        debugLog('Port 9222 empty, probing port 9223...');
-        targets = await this.fetchTargets(9223);
-        if (targets && targets.length) {
-          CDP_PORT = 9223;
-          this.currentTarget = 'host';
-        }
-      }
+      // Strictly lock to port 9222 (VM Local Antigravity IDE)
+      CDP_PORT = 9222;
+      this.currentTarget = 'vm';
 
       if (!targets || !targets.length) {
         this.scheduleReconnect();
