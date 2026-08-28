@@ -1,0 +1,1348 @@
+/**
+ * GRAVITYREM3 — Minimalist Professional Client Application Logic (v3.3)
+ */
+
+const state = {
+  ws: null,
+  connected: false,
+  messages: [],
+  agent: { state: 'idle', busy: false },
+  actions: { autoAccept: { available: false, enabled: false }, permissionPrompt: null, pendingButtons: [] },
+  stats: null,
+  activeModel: 'Gemini 3.7 Flash High',
+  modelsList: [],
+  activeTarget: 'host',
+  isRecording: false,
+  speechRecognition: null,
+  autoScroll: true,
+  userScrolledUp: false,
+  drawerActiveTab: 'plan',
+  agFeatures: null,
+  messageQueue: [],
+  lensAutoRefreshInterval: 0,
+  lensTimer: null,
+  terminalHistory: [],
+  terminalHistoryIndex: -1,
+  currentTheme: localStorage.getItem('ag_theme') || 'matrix',
+  searchQuery: ''
+};
+
+function formatShortModelName(name) {
+  if (!name) return 'Gemini 3.7';
+  if (name.includes('3.7')) return 'Gemini 3.7';
+  if (name.includes('3.6')) return 'Gemini 3.6';
+  if (name.includes('3.5')) return 'Gemini 3.5';
+  if (name.includes('3.1')) return 'Gemini 3.1';
+  if (name.includes('Sonnet')) return 'Sonnet 4.6';
+  if (name.includes('Opus')) return 'Opus 4.6';
+  if (name.includes('GPT')) return 'GPT-OSS';
+  return name.split(' ')[0];
+}
+
+const DEFAULT_MODELS = [
+  { id: 'gemini-3.7-flash-high', name: 'Gemini 3.7 Flash High', tag: 'Fast', desc: 'Hybrid reasoning & rapid coding' },
+  { id: 'gemini-3.6-flash-medium', name: 'Gemini 3.6 Flash Medium', tag: 'Fast', desc: 'Balanced rapid agentic workflows' },
+  { id: 'gemini-3.5-flash-medium', name: 'Gemini 3.5 Flash Medium', tag: 'Fast', desc: 'Lightweight high-efficiency model' },
+  { id: 'gemini-3.1-pro-low', name: 'Gemini 3.1 Pro Low', tag: 'Deep', desc: 'Deep multi-step reasoning & planning' },
+  { id: 'claude-sonnet-4.6-thinking', name: 'Claude Sonnet 4.6 (Thinking)', tag: 'Thinking', desc: 'Anthropic deep chain-of-thought' },
+  { id: 'claude-opus-4.6-thinking', name: 'Claude Opus 4.6 (Thinking)', tag: 'Frontier', desc: 'Maximum architecture capability' },
+  { id: 'gpt-oss-120b-medium', name: 'GPT-OSS 120B (Medium)', tag: 'OSS', desc: 'Open-weights dense transformer' }
+];
+
+const elements = {
+  brandBadge: document.getElementById('brand-badge'),
+  targetSwitchBtn: document.getElementById('target-switch-btn'),
+  targetLabel: document.getElementById('target-label'),
+  autoAcceptBtn: document.getElementById('auto-accept-btn'),
+  chatViewport: document.getElementById('chat-viewport'),
+  promptInput: document.getElementById('prompt-input'),
+  sendBtn: document.getElementById('send-btn'),
+  micBtn: document.getElementById('mic-btn'),
+  attachBtn: document.getElementById('attach-btn'),
+  fileInput: document.getElementById('file-upload-input'),
+  stopBtn: document.getElementById('stop-btn'),
+  newChatBtn: document.getElementById('new-chat-btn'),
+  syncBtn: document.getElementById('sync-btn'),
+  modelBtn: document.getElementById('model-btn'),
+  modelLabel: document.getElementById('current-model-label'),
+  historyBtn: document.getElementById('history-btn'),
+  statusDot: document.getElementById('status-dot'),
+  cpuStat: document.getElementById('cpu-stat'),
+  ramStat: document.getElementById('ram-stat'),
+  cdpStatusStat: document.getElementById('cdp-status-stat'),
+  modelModal: document.getElementById('model-modal'),
+  historyModal: document.getElementById('history-modal'),
+  lensModal: document.getElementById('lens-modal'),
+  lensModalImg: document.getElementById('lens-modal-img'),
+  drawerOverlay: document.getElementById('ag-drawer-overlay'),
+  drawerBody: document.getElementById('drawer-body'),
+  historyList: document.getElementById('history-list'),
+  modelList: document.getElementById('model-list'),
+  scrollToBottomBtn: document.getElementById('scroll-bottom-btn'),
+  queueTray: document.getElementById('queue-tray-bar'),
+  queueBadge: document.getElementById('queue-count-badge'),
+  queueText: document.getElementById('queue-preview-text'),
+  actionPromptCard: document.getElementById('action-prompt-card'),
+  actionTitle: document.getElementById('action-title'),
+  actionButtonsContainer: document.getElementById('action-buttons-container'),
+  searchToggleBtn: document.getElementById('search-toggle-btn'),
+  chatSearchBar: document.getElementById('chat-search-bar'),
+  chatSearchInput: document.getElementById('chat-search-input'),
+  searchCount: document.getElementById('search-count'),
+  searchCloseBtn: document.getElementById('search-close-btn')
+};
+
+function haptic(ms = 15) {
+  if (navigator.vibrate) {
+    try { navigator.vibrate(ms); } catch (e) {}
+  }
+}
+
+// ----------------------------------------------------------------------
+// Theme Engine
+// ----------------------------------------------------------------------
+function applyTheme(themeName) {
+  state.currentTheme = themeName;
+  localStorage.setItem('ag_theme', themeName);
+  document.body.className = `theme-${themeName}`;
+}
+applyTheme(state.currentTheme);
+
+// ----------------------------------------------------------------------
+// WebSocket Connection
+// ----------------------------------------------------------------------
+function connectWebSocket() {
+  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+  const wsUrl = `${protocol}//${window.location.host}`;
+
+  state.ws = new WebSocket(wsUrl);
+
+  state.ws.onopen = () => {
+    state.connected = true;
+    updateStatus('Live', 'online');
+    syncChat();
+    fetchLiveModels();
+  };
+
+  state.ws.onmessage = (event) => {
+    try {
+      const data = JSON.parse(event.data);
+      handleWsEvent(data);
+    } catch (e) {}
+  };
+
+  state.ws.onclose = () => {
+    state.connected = false;
+    updateStatus('Reconnecting...', 'offline');
+    setTimeout(connectWebSocket, 3000);
+  };
+
+  state.ws.onerror = () => {
+    state.connected = false;
+  };
+}
+
+function handleWsEvent(msg) {
+  switch (msg.event) {
+    case 'init_state':
+      state.messages = msg.payload.messages || [];
+      state.agent = msg.payload.agent || { state: 'idle', busy: false };
+      state.actions = msg.payload.actions || state.actions;
+      renderMessages();
+      updateAgentUI();
+      updateActionsUI(state.actions);
+      if (msg.payload.stats) updateTelemetryUI(msg.payload.stats);
+      break;
+
+    case 'message_new':
+      const lastMsg = state.messages[state.messages.length - 1];
+      if (!lastMsg || lastMsg.text !== msg.payload.text || lastMsg.from !== msg.payload.from) {
+        state.messages.push(msg.payload);
+        appendMessageUI(msg.payload);
+      }
+      break;
+
+    case 'agent_state':
+      const wasBusy = state.agent.busy;
+      state.agent = msg.payload;
+      updateAgentUI();
+      if (wasBusy && !state.agent.busy && state.messageQueue.length > 0) {
+        dispatchQueuedMessage();
+      }
+      break;
+
+    case 'actions_detected':
+      state.actions = msg.payload;
+      updateActionsUI(msg.payload);
+      break;
+
+    case 'telemetry_tick':
+      updateTelemetryUI(msg.payload);
+      break;
+
+    case 'history_cleared':
+      state.messages = [];
+      renderMessages();
+      updateStatus('Ready', 'online');
+      break;
+  }
+}
+
+function updateStatus(text, type) {
+  if (!elements.statusDot) return;
+  elements.statusDot.className = 'pulse-dot ' + (type === 'offline' ? 'offline' : (state.agent.busy ? 'busy' : ''));
+}
+
+function updateTelemetryUI(stats) {
+  if (!stats) return;
+  state.stats = stats;
+  if (elements.cpuStat) elements.cpuStat.textContent = `${stats.cpu}%`;
+  if (elements.ramStat && stats.ram) elements.ramStat.textContent = `${stats.ram.usedMb}MB`;
+  
+  if (elements.cdpStatusStat) {
+    elements.cdpStatusStat.textContent = stats.cdpConnected ? 'ONLINE' : 'STANDBY';
+    elements.cdpStatusStat.style.color = stats.cdpConnected ? 'var(--emerald-glow)' : 'var(--rose-glow)';
+  }
+
+  if (stats.currentTarget) {
+    state.activeTarget = stats.currentTarget;
+    if (elements.targetLabel) {
+      elements.targetLabel.textContent = stats.currentTarget === 'vm' ? 'VM' : 'Host';
+    }
+    const dot = elements.targetSwitchBtn ? elements.targetSwitchBtn.querySelector('.indicator-dot') : null;
+    if (dot) {
+      dot.className = `indicator-dot ${stats.currentTarget}`;
+    }
+  }
+
+  if (stats.autoAccept) {
+    state.actions.autoAccept = stats.autoAccept;
+    updateAutoAcceptButtonUI(stats.autoAccept);
+  }
+
+  if (stats.agentBusy !== undefined) {
+    const wasBusy = state.agent.busy;
+    state.agent.busy = stats.agentBusy;
+    updateAgentUI();
+    if (wasBusy && !state.agent.busy && state.messageQueue.length > 0) {
+      dispatchQueuedMessage();
+    }
+  }
+}
+
+function updateAutoAcceptButtonUI(autoAccept) {
+  if (!elements.autoAcceptBtn) return;
+  if (!autoAccept || !autoAccept.available) {
+    elements.autoAcceptBtn.style.display = 'none';
+    return;
+  }
+  elements.autoAcceptBtn.style.display = 'inline-flex';
+  if (autoAccept.enabled) {
+    elements.autoAcceptBtn.innerHTML = '<span>Auto: ON</span>';
+    elements.autoAcceptBtn.style.borderColor = 'var(--emerald)';
+    elements.autoAcceptBtn.style.color = 'var(--emerald-glow)';
+    elements.autoAcceptBtn.style.background = 'var(--emerald-dim)';
+  } else {
+    elements.autoAcceptBtn.innerHTML = '<span>Auto: OFF</span>';
+    elements.autoAcceptBtn.style.borderColor = 'var(--border-glass)';
+    elements.autoAcceptBtn.style.color = 'var(--text-secondary)';
+    elements.autoAcceptBtn.style.background = 'rgba(255, 255, 255, 0.05)';
+  }
+}
+
+async function toggleAutoAccept() {
+  haptic(25);
+  try {
+    const res = await fetch('/api/auto-accept/toggle', { method: 'POST' });
+    const data = await res.json();
+    if (data.ok) {
+      state.actions.autoAccept.enabled = !state.actions.autoAccept.enabled;
+      updateAutoAcceptButtonUI(state.actions.autoAccept);
+    }
+  } catch (e) {}
+}
+
+let actionsDismissed = false;
+
+window.dismissActionPrompt = function() {
+  haptic(15);
+  actionsDismissed = true;
+  if (elements.actionPromptCard) elements.actionPromptCard.style.display = 'none';
+};
+
+function updateActionsUI(actions) {
+  if (!elements.actionPromptCard || !elements.actionButtonsContainer) return;
+  
+  if (actions.autoAccept) {
+    updateAutoAcceptButtonUI(actions.autoAccept);
+  }
+
+  if (actionsDismissed) return;
+
+  const hasPrompt = !!actions.permissionPrompt;
+  const hasButtons = actions.pendingButtons && actions.pendingButtons.length > 0;
+
+  if (hasPrompt || hasButtons) {
+    elements.actionPromptCard.style.display = 'flex';
+    if (elements.actionTitle) {
+      elements.actionTitle.textContent = actions.permissionPrompt || 'Permission Required';
+    }
+
+    elements.actionButtonsContainer.innerHTML = '';
+    const btns = actions.pendingButtons || [];
+    btns.forEach(b => {
+      const btnEl = document.createElement('button');
+      const isPositive = ['allow', 'approve', 'proceed', 'run', 'review changes', 'accept'].some(k => b.text.toLowerCase().includes(k));
+      const isNegative = ['deny', 'cancel'].some(k => b.text.toLowerCase().includes(k));
+      
+      btnEl.className = 'chip-btn ' + (isPositive ? 'highlight' : (isNegative ? 'stop-btn' : ''));
+      btnEl.style.padding = '5px 12px';
+      btnEl.style.fontWeight = '700';
+      btnEl.textContent = b.text;
+      
+      btnEl.onclick = async () => {
+        haptic(35);
+        btnEl.disabled = true;
+        btnEl.textContent = 'Executing...';
+        await fetch('/api/actions/click', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text: b.text })
+        });
+        elements.actionPromptCard.style.display = 'none';
+        actionsDismissed = true;
+        setTimeout(() => { actionsDismissed = false; syncChat(); }, 2000);
+      };
+      
+      elements.actionButtonsContainer.appendChild(btnEl);
+    });
+
+    if (!state.userScrolledUp) scrollToBottom();
+  } else {
+    elements.actionPromptCard.style.display = 'none';
+  }
+}
+
+function updateAgentUI() {
+  const isBusy = state.agent.busy;
+  updateStatus(isBusy ? 'Agent Working...' : 'Live', isBusy ? 'busy' : 'online');
+  
+  if (elements.stopBtn) {
+    elements.stopBtn.style.display = isBusy ? 'inline-flex' : 'none';
+  }
+
+  let workingBanner = document.getElementById('agent-working-banner');
+  if (isBusy) {
+    if (!workingBanner) {
+      workingBanner = document.createElement('div');
+      workingBanner.id = 'agent-working-banner';
+      workingBanner.className = 'thought-card';
+      workingBanner.style.borderColor = 'var(--purple-glow)';
+      workingBanner.innerHTML = `
+        <div style="display:flex; align-items:center; gap:8px;">
+          <div class="pulse-dot busy"></div>
+          <span style="font-size:12.5px; color:var(--purple-glow); font-weight:600;">Agent is thinking...</span>
+        </div>
+      `;
+      elements.chatViewport.appendChild(workingBanner);
+      if (!state.userScrolledUp) scrollToBottom();
+    }
+  } else {
+    if (workingBanner) workingBanner.remove();
+  }
+}
+
+async function toggleTarget() {
+  haptic(30);
+  const nextTarget = state.activeTarget === 'host' ? 'vm' : 'host';
+  try {
+    const res = await fetch('/api/target', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ target: nextTarget })
+    });
+    const data = await res.json();
+    if (data.ok) {
+      state.activeTarget = data.target;
+      if (elements.targetLabel) {
+        elements.targetLabel.textContent = data.target === 'vm' ? 'VM' : 'Host';
+      }
+      const dot = elements.targetSwitchBtn ? elements.targetSwitchBtn.querySelector('.indicator-dot') : null;
+      if (dot) {
+        dot.className = `indicator-dot ${data.target}`;
+      }
+      setTimeout(syncChat, 500);
+    }
+  } catch (e) {}
+}
+
+async function syncChat() {
+  haptic(15);
+  try {
+    const res = await fetch('/api/sync-chat', { method: 'POST' });
+    const data = await res.json();
+    if (data.ok) {
+      console.log(`[SYNC] Synced ${data.count} messages from IDE.`);
+    }
+  } catch (e) {}
+}
+
+// ----------------------------------------------------------------------
+// Markdown & Rich Content Renderer (Tables, Diffs, Alerts, Code)
+// ----------------------------------------------------------------------
+function renderMarkdown(text) {
+  if (!text) return '';
+
+  let html = text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+
+  // Collapsible Thought Blocks
+  html = html.replace(/^(Thought for [0-9smh\s]+|Worked for [0-9smh\s]+)([\s\S]*?)(?=\n\n|$)/im, (m, title, thought) => {
+    return `
+      <details class="thought-card" style="margin-bottom:8px;">
+        <summary style="cursor:pointer; font-weight:600; list-style:none; display:flex; justify-content:space-between; align-items:center;">
+          <span>${title.trim()}</span>
+          <span style="font-size:9.5px; opacity:0.7;">▾ Details</span>
+        </summary>
+        <div style="margin-top:6px; font-size:11.5px; opacity:0.9; line-height:1.45; white-space:pre-wrap;">${thought.trim()}</div>
+      </details>
+    `;
+  });
+
+  // Alerts
+  html = html.replace(/^&gt;\s*\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\]\s*\n([\s\S]*?)(?=\n\n|$)/gim, (m, type, content) => {
+    const alertType = type.toUpperCase();
+    const colors = {
+      NOTE: { border: 'var(--cyan)', bg: 'rgba(6, 182, 212, 0.12)' },
+      TIP: { border: 'var(--emerald)', bg: 'rgba(16, 185, 129, 0.12)' },
+      IMPORTANT: { border: 'var(--purple)', bg: 'rgba(168, 85, 247, 0.15)' },
+      WARNING: { border: 'var(--amber)', bg: 'rgba(245, 158, 11, 0.15)' },
+      CAUTION: { border: 'var(--rose)', bg: 'rgba(244, 63, 94, 0.15)' }
+    };
+    const c = colors[alertType] || colors.NOTE;
+    return `
+      <div style="border-left: 3px solid ${c.border}; background: ${c.bg}; padding: 8px 12px; border-radius: 4px; margin: 8px 0; font-size: 12.5px;">
+        <div style="font-weight: 700; color: #fff; margin-bottom: 2px; font-size: 11px; letter-spacing: 0.5px;">${alertType}</div>
+        <div>${content.trim().replace(/\n/g, '<br>')}</div>
+      </div>
+    `;
+  });
+
+  // Code Blocks & Diffs
+  html = html.replace(/```([a-zA-Z0-9_-]*)\n([\s\S]*?)```/g, (match, lang, code) => {
+    const langLabel = lang || 'code';
+    let formattedCode = code.trim();
+
+    if (langLabel === 'diff') {
+      formattedCode = formattedCode.split('\n').map(line => {
+        if (line.startsWith('+')) return `<span class="diff-add">${line}</span>`;
+        if (line.startsWith('-')) return `<span class="diff-del">${line}</span>`;
+        return line;
+      }).join('\n');
+    }
+
+    return `
+      <div class="code-container">
+        <div class="code-header">
+          <span>${langLabel}</span>
+          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+        </div>
+        <pre><code class="language-${langLabel}">${formattedCode}</code></pre>
+      </div>
+    `;
+  });
+
+  // Markdown Tables
+  html = html.replace(/((?:\|[^\n]+\|\r?\n)+)/g, (tableMatch) => {
+    const rows = tableMatch.trim().split('\n').map(r => r.trim());
+    if (rows.length < 2) return tableMatch;
+
+    const headerCells = rows[0].split('|').slice(1, -1).map(c => c.trim());
+    const isDivider = /^\|?[\s:-|-]+\|?$/.test(rows[1]);
+    const dataRows = isDivider ? rows.slice(2) : rows.slice(1);
+
+    let tableHtml = '<div class="markdown-table-wrapper"><table class="markdown-table"><thead><tr>';
+    headerCells.forEach(h => { tableHtml += `<th>${h}</th>`; });
+    tableHtml += '</tr></thead><tbody>';
+
+    dataRows.forEach(row => {
+      const cells = row.split('|').slice(1, -1).map(c => c.trim());
+      if (cells.length) {
+        tableHtml += '<tr>';
+        cells.forEach(c => { tableHtml += `<td>${c}</td>`; });
+        tableHtml += '</tr>';
+      }
+    });
+
+    tableHtml += '</tbody></table></div>';
+    return tableHtml;
+  });
+
+  // Checkboxes
+  html = html.replace(/\[ \]\s*(.+)/g, '<span style="color:var(--text-secondary);">[ ] $1</span>');
+  html = html.replace(/\[x\]\s*(.+)/gi, '<span style="color:var(--emerald-glow);">[x] $1</span>');
+
+  // Inline formatting
+  html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
+  html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+  html = html.replace(/\*([^*]+)\*/g, '<em>$1</em>');
+  html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" style="color:var(--cyan-glow);text-decoration:underline;">$1</a>');
+
+  const paragraphs = html.split(/\n\n+/);
+  return paragraphs.map(p => `<p>${p.replace(/\n/g, '<br>')}</p>`).join('');
+}
+
+window.copyCode = function(btn) {
+  haptic(20);
+  const pre = btn.closest('.code-container').querySelector('pre code');
+  if (pre) {
+    navigator.clipboard.writeText(pre.innerText).then(() => {
+      btn.textContent = 'Copied';
+      setTimeout(() => btn.textContent = 'Copy', 2000);
+    });
+  }
+};
+
+// ----------------------------------------------------------------------
+// Chat Feed & Search Filter
+// ----------------------------------------------------------------------
+function renderMessages() {
+  if (!elements.chatViewport) return;
+  elements.chatViewport.innerHTML = '';
+
+  const filtered = state.searchQuery
+    ? state.messages.filter(m => m.text.toLowerCase().includes(state.searchQuery.toLowerCase()))
+    : state.messages;
+
+  if (elements.searchCount) {
+    elements.searchCount.textContent = `${filtered.length}/${state.messages.length}`;
+  }
+
+  if (filtered.length === 0) {
+    elements.chatViewport.innerHTML = `
+      <div style="text-align:center; padding: 40px 20px; color:var(--text-tertiary);">
+        <div style="font-family:var(--font-display); font-size:16px; font-weight:700; color:var(--text-primary); margin-bottom:4px;">GravityRem3 Ready</div>
+        <div style="font-size:12.5px;">Connected directly to Antigravity IDE (${state.activeTarget.toUpperCase()}). Tap header to open Suite Drawer.</div>
+      </div>
+    `;
+    return;
+  }
+
+  for (const msg of filtered) {
+    appendMessageUI(msg, false);
+  }
+  scrollToBottom();
+}
+
+function appendMessageUI(msg, scroll = true) {
+  if (!elements.chatViewport) return;
+
+  const isUser = msg.from === 'user';
+  const row = document.createElement('div');
+  row.className = `message-row ${isUser ? 'user' : 'agent'}`;
+
+  const timeStr = msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+
+  row.innerHTML = `
+    <div class="message-meta">
+      <span class="message-avatar-tag">${isUser ? 'You' : 'Antigravity'}</span>
+      <span>•</span>
+      <span>${timeStr}</span>
+    </div>
+    <div class="message-bubble" onclick="openMessageActions(this, ${JSON.stringify(msg.text)})">
+      ${isUser ? escapeHtml(msg.text) : renderMarkdown(msg.text)}
+    </div>
+  `;
+
+  elements.chatViewport.appendChild(row);
+
+  if (scroll) {
+    if (state.userScrolledUp) {
+      if (elements.scrollToBottomBtn) elements.scrollToBottomBtn.style.display = 'flex';
+    } else {
+      scrollToBottom();
+    }
+  }
+}
+
+window.openMessageActions = function(el, text) {
+  haptic(15);
+};
+
+function escapeHtml(text) {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/\n/g, '<br>');
+}
+
+function scrollToBottom() {
+  if (!elements.chatViewport) return;
+  elements.chatViewport.scrollTop = elements.chatViewport.scrollHeight;
+  state.userScrolledUp = false;
+  if (elements.scrollToBottomBtn) elements.scrollToBottomBtn.style.display = 'none';
+}
+
+function handleScrollDetection() {
+  if (!elements.chatViewport) return;
+  const isNearBottom = elements.chatViewport.scrollHeight - elements.chatViewport.scrollTop - elements.chatViewport.clientHeight < 80;
+  state.userScrolledUp = !isNearBottom;
+  if (elements.scrollToBottomBtn) {
+    elements.scrollToBottomBtn.style.display = state.userScrolledUp ? 'flex' : 'none';
+  }
+}
+
+// ----------------------------------------------------------------------
+// Send Message & Queueing
+// ----------------------------------------------------------------------
+async function sendMessage() {
+  const text = (elements.promptInput.value || '').trim();
+  if (!text) return;
+
+  haptic(30);
+  elements.promptInput.value = '';
+  elements.promptInput.style.height = '32px';
+
+  if (state.agent.busy) {
+    state.messageQueue.push(text);
+    updateQueueUI();
+    return;
+  }
+
+  await postMessageDirect(text);
+}
+
+async function postMessageDirect(text) {
+  try {
+    const res = await fetch('/api/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text })
+    });
+    const data = await res.json();
+    if (!data.ok) {
+      console.error('[SEND_ERR]', data);
+    }
+  } catch (err) {
+    console.error('[SEND_EXCEPTION]', err);
+  }
+}
+
+function updateQueueUI() {
+  if (!elements.queueTray) return;
+  if (state.messageQueue.length > 0) {
+    elements.queueTray.style.display = 'flex';
+    elements.queueBadge.textContent = state.messageQueue.length;
+    elements.queueText.textContent = `Queued: "${state.messageQueue[0].slice(0, 24)}..."`;
+  } else {
+    elements.queueTray.style.display = 'none';
+  }
+}
+
+function dispatchQueuedMessage() {
+  if (state.messageQueue.length === 0) return;
+  const nextMsg = state.messageQueue.shift();
+  updateQueueUI();
+  postMessageDirect(nextMsg);
+}
+
+window.clearMessageQueue = function() {
+  haptic(20);
+  state.messageQueue = [];
+  updateQueueUI();
+};
+
+window.insertQuickPrompt = function(promptText) {
+  haptic(20);
+  elements.promptInput.value = promptText;
+  elements.promptInput.focus();
+};
+
+// ----------------------------------------------------------------------
+// Master Suite Drawer Controller
+// ----------------------------------------------------------------------
+window.switchDrawerTab = function(tabName) {
+  haptic(20);
+  state.drawerActiveTab = tabName;
+  document.querySelectorAll('.drawer-tab').forEach(t => {
+    t.classList.toggle('active', t.getAttribute('data-tab') === tabName);
+  });
+  renderDrawerContent();
+};
+
+async function renderDrawerContent() {
+  if (!elements.drawerBody) return;
+  elements.drawerBody.innerHTML = '<div style="text-align:center; padding:25px; color:var(--text-tertiary);">Loading...</div>';
+
+  try {
+    const res = await fetch('/api/antigravity/features');
+    const data = await res.json();
+    state.agFeatures = data;
+
+    switch (state.drawerActiveTab) {
+      case 'plan':
+        renderPlanTab(data);
+        break;
+      case 'lens':
+        renderLensTab();
+        break;
+      case 'terminal':
+        renderTerminalTab();
+        break;
+      case 'tabs':
+        renderEditorTabs();
+        break;
+      case 'kis':
+        renderKnowledgeTab(data.knowledgeItems || []);
+        break;
+      case 'daemons':
+        renderDaemonsTab();
+        break;
+      case 'slash':
+        renderSlashTab(data.slashCommands || []);
+        break;
+      case 'themes':
+        renderThemesTab();
+        break;
+    }
+  } catch (e) {
+    elements.drawerBody.innerHTML = '<div style="color:var(--rose-glow); padding:20px;">Failed to load suite features.</div>';
+  }
+}
+
+function renderPlanTab(data) {
+  const plan = data.plan;
+  const walkthrough = data.walkthrough;
+
+  if (!plan && !walkthrough) {
+    elements.drawerBody.innerHTML = `
+      <div style="text-align:center; padding: 35px 10px; color:var(--text-secondary);">
+        <div style="font-weight:700; font-size:15px; margin-bottom:4px;">No Active Plan</div>
+        <div style="font-size:12px; color:var(--text-tertiary);">Trigger complex tasks to generate interactive plans.</div>
+      </div>
+    `;
+    return;
+  }
+
+  let html = '';
+  if (plan) {
+    html += `
+      <div style="background:var(--bg-card); border:1px solid var(--border-glass); border-radius:var(--radius-xs); padding:12px; margin-bottom:12px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+          <span style="font-size:11.5px; font-weight:800; color:var(--emerald-glow);">ACTIVE IMPLEMENTATION PLAN</span>
+        </div>
+        <div style="font-size:13px; line-height:1.5;">${renderMarkdown(plan)}</div>
+        <div class="plan-action-bar">
+          <button class="approve-btn" onclick="approvePlan()">Proceed & Execute</button>
+          <button class="reject-btn" onclick="rejectPlan()">Feedback / Revise</button>
+        </div>
+      </div>
+    `;
+  }
+
+  if (walkthrough) {
+    html += `
+      <div style="background:var(--bg-card); border:1px solid var(--border-glass); border-radius:var(--radius-xs); padding:12px;">
+        <div style="font-size:11.5px; font-weight:800; color:var(--cyan-glow); margin-bottom:6px;">LATEST WALKTHROUGH</div>
+        <div style="font-size:13px; line-height:1.5;">${renderMarkdown(walkthrough)}</div>
+      </div>
+    `;
+  }
+
+  elements.drawerBody.innerHTML = html;
+}
+
+window.approvePlan = async function() {
+  haptic(35);
+  closeDrawer();
+  await fetch('/api/plan/approve', { method: 'POST' });
+};
+
+window.rejectPlan = async function() {
+  haptic(20);
+  const feedback = prompt('Enter your revision feedback for the plan:');
+  if (feedback !== null) {
+    closeDrawer();
+    await fetch('/api/plan/reject', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ feedback })
+    });
+  }
+};
+
+function renderLensTab() {
+  elements.drawerBody.innerHTML = `
+    <div style="display:flex; flex-direction:column; gap:10px;">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <span style="font-size:11.5px; font-weight:700; color:var(--emerald-glow);">LIVE DESKTOP STREAM</span>
+        <div style="display:flex; gap:5px; align-items:center;">
+          <select id="lens-interval-select" onchange="setLensInterval(this.value)" style="background:rgba(0,0,0,0.5); border:1px solid var(--border-glass); color:#fff; font-size:10.5px; padding:3px 6px; border-radius:var(--radius-xs);">
+            <option value="0">Auto: OFF</option>
+            <option value="1000">Auto: 1s</option>
+            <option value="3000">Auto: 3s</option>
+            <option value="5000">Auto: 5s</option>
+          </select>
+          <button onclick="refreshLens()" class="chip-btn highlight" style="padding:2px 8px; font-size:10px; height:24px;">Refresh</button>
+        </div>
+      </div>
+
+      <div style="position:relative; background:#000; border:1px solid var(--border-glass); border-radius:var(--radius-xs); overflow:hidden; min-height:200px; display:flex; align-items:center; justify-content:center; cursor:pointer;" onclick="openLensModal()">
+        <img id="lens-preview-img" src="/api/screenshot?raw=true&t=${Date.now()}" alt="Visual Lens" style="width:100%; height:auto; display:block;" onerror="this.src=''; this.alt='Snapshot failed.'">
+      </div>
+      <div style="font-size:10.5px; color:var(--text-tertiary); text-align:center;">Tap screenshot to open fullscreen high-res zoom.</div>
+    </div>
+  `;
+}
+
+window.refreshLens = function() {
+  haptic(15);
+  const img = document.getElementById('lens-preview-img');
+  if (img) img.src = `/api/screenshot?raw=true&t=${Date.now()}`;
+};
+
+window.setLensInterval = function(val) {
+  const ms = parseInt(val);
+  state.lensAutoRefreshInterval = ms;
+  if (state.lensTimer) clearInterval(state.lensTimer);
+  if (ms > 0) {
+    state.lensTimer = setInterval(refreshLens, ms);
+  }
+};
+
+window.openLensModal = function() {
+  haptic(25);
+  if (elements.lensModal && elements.lensModalImg) {
+    elements.lensModalImg.src = `/api/screenshot?raw=true&quality=90&t=${Date.now()}`;
+    elements.lensModal.style.display = 'flex';
+  }
+};
+
+window.closeLensModal = function() {
+  if (elements.lensModal) elements.lensModal.style.display = 'none';
+};
+
+function renderTerminalTab() {
+  elements.drawerBody.innerHTML = `
+    <div style="display:flex; flex-direction:column; gap:8px;">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <span style="font-size:11.5px; font-weight:700; color:var(--cyan-glow);">QUICK REMOTE TERMINAL</span>
+        <button onclick="clearTerminalOutput()" style="background:none; border:none; color:var(--text-tertiary); font-size:10.5px; cursor:pointer;">Clear</button>
+      </div>
+
+      <div class="quick-action-carousel" style="margin-bottom:2px;">
+        <button class="chip-btn" onclick="execTerminalSnippet('uptime; free -h')">Uptime</button>
+        <button class="chip-btn" onclick="execTerminalSnippet('git status')">Git Status</button>
+        <button class="chip-btn" onclick="execTerminalSnippet('df -h')">Disk Space</button>
+        <button class="chip-btn" onclick="execTerminalSnippet('journalctl --user -u antigravity-phone-chat -n 15 --no-pager')">Phone Logs</button>
+      </div>
+
+      <div style="display:flex; gap:5px;">
+        <input type="text" id="terminal-input" placeholder="Command..." style="flex:1; background:rgba(0,0,0,0.6); border:1px solid var(--border-glass); border-radius:var(--radius-xs); padding:6px 10px; font-family:var(--font-mono); font-size:12px; color:#fff; outline:none;" onkeydown="handleTerminalKey(event)">
+        <button onclick="runTerminalCmd()" class="chip-btn highlight" style="padding:6px 12px; font-weight:700; height:28px;">Run</button>
+      </div>
+
+      <pre id="terminal-output" style="background:#020408; border:1px solid var(--border-glass); border-radius:var(--radius-xs); padding:10px; font-family:var(--font-mono); font-size:11px; line-height:1.4; color:#a7f3d0; max-height:240px; overflow:auto; white-space:pre-wrap;">Terminal Ready.\n</pre>
+    </div>
+  `;
+}
+
+window.handleTerminalKey = function(e) {
+  if (e.key === 'Enter') {
+    runTerminalCmd();
+  } else if (e.key === 'ArrowUp') {
+    if (state.terminalHistory.length > 0) {
+      state.terminalHistoryIndex = Math.min(state.terminalHistoryIndex + 1, state.terminalHistory.length - 1);
+      e.target.value = state.terminalHistory[state.terminalHistory.length - 1 - state.terminalHistoryIndex] || '';
+    }
+  } else if (e.key === 'ArrowDown') {
+    if (state.terminalHistoryIndex > 0) {
+      state.terminalHistoryIndex--;
+      e.target.value = state.terminalHistory[state.terminalHistory.length - 1 - state.terminalHistoryIndex] || '';
+    } else {
+      state.terminalHistoryIndex = -1;
+      e.target.value = '';
+    }
+  }
+};
+
+window.execTerminalSnippet = function(cmd) {
+  const inp = document.getElementById('terminal-input');
+  if (inp) {
+    inp.value = cmd;
+    runTerminalCmd();
+  }
+};
+
+window.runTerminalCmd = async function() {
+  const inp = document.getElementById('terminal-input');
+  const out = document.getElementById('terminal-output');
+  if (!inp || !inp.value.trim() || !out) return;
+
+  const cmd = inp.value.trim();
+  state.terminalHistory.push(cmd);
+  state.terminalHistoryIndex = -1;
+  inp.value = '';
+
+  out.textContent += `\n$ ${cmd}\n`;
+  haptic(15);
+
+  try {
+    const res = await fetch('/api/terminal/exec', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ cmd })
+    });
+    const data = await res.json();
+    if (data.stdout) out.textContent += data.stdout;
+    if (data.stderr) out.textContent += `\n[STDERR]\n${data.stderr}`;
+    out.scrollTop = out.scrollHeight;
+  } catch (e) {
+    out.textContent += `\n[ERROR: ${e.message}]\n`;
+  }
+};
+
+window.clearTerminalOutput = function() {
+  const out = document.getElementById('terminal-output');
+  if (out) out.textContent = 'Terminal cleared.\n';
+};
+
+async function renderEditorTabs() {
+  const res = await fetch('/api/tabs');
+  const data = await res.json();
+  const tabs = data.tabs || [];
+
+  if (tabs.length === 0) {
+    elements.drawerBody.innerHTML = '<div style="text-align:center; padding:25px; color:var(--text-tertiary);">No open editor tabs.</div>';
+    return;
+  }
+
+  let html = '<div style="display:flex; flex-direction:column; gap:6px;">';
+  tabs.forEach(t => {
+    html += `
+      <div class="model-item ${t.active ? 'active' : ''}" onclick="focusEditorTab(${t.index})">
+        <div>
+          <div style="font-weight:700; font-size:12.5px; color:#fff;">${t.title}</div>
+          <div style="font-size:10.5px; color:var(--text-tertiary);">${t.active ? 'Active' : 'Background'}</div>
+        </div>
+        <button class="chip-btn ${t.active ? 'highlight' : ''}" style="font-size:10px; height:22px; padding:2px 8px;">Focus</button>
+      </div>
+    `;
+  });
+  html += '</div>';
+  elements.drawerBody.innerHTML = html;
+}
+
+window.focusEditorTab = async function(idx) {
+  haptic(25);
+  await fetch('/api/tabs/focus', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ index: idx })
+  });
+  renderEditorTabs();
+};
+
+function renderKnowledgeTab(kis) {
+  let html = `
+    <div style="display:flex; flex-direction:column; gap:8px;">
+      <input type="text" id="ki-search-input" placeholder="Filter Knowledge Items..." oninput="filterKis(this.value)" style="background:rgba(0,0,0,0.5); border:1px solid var(--border-glass); padding:6px 10px; border-radius:var(--radius-xs); color:#fff; font-size:12px; outline:none;">
+      <div id="kis-list-container" style="display:flex; flex-direction:column; gap:6px;">
+  `;
+
+  kis.forEach(k => {
+    html += `
+      <div class="model-item ki-card-item" data-title="${k.title.toLowerCase()}" data-summary="${k.summary.toLowerCase()}" onclick="inspectKnowledge('${k.id}')">
+        <div>
+          <div style="font-weight:700; font-size:12.5px; color:var(--emerald-glow);">${k.title}</div>
+          <div style="font-size:11px; color:var(--text-secondary); line-height:1.35; margin-top:2px;">${k.summary || 'Knowledge item context'}</div>
+        </div>
+      </div>
+    `;
+  });
+
+  html += '</div></div>';
+  elements.drawerBody.innerHTML = html;
+}
+
+window.filterKis = function(query) {
+  const q = query.toLowerCase();
+  document.querySelectorAll('.ki-card-item').forEach(card => {
+    const title = card.getAttribute('data-title') || '';
+    const summary = card.getAttribute('data-summary') || '';
+    card.style.display = (title.includes(q) || summary.includes(q)) ? 'flex' : 'none';
+  });
+};
+
+window.inspectKnowledge = async function(kiId) {
+  haptic(20);
+  try {
+    const res = await fetch(`/api/knowledge/${kiId}`);
+    const data = await res.json();
+    if (data.ok) {
+      alert(`${data.meta.title || kiId}\n\n${data.meta.summary || 'No detailed summary.'}`);
+    }
+  } catch (e) {}
+};
+
+async function renderDaemonsTab() {
+  const res = await fetch('/api/daemons');
+  const data = await res.json();
+  const daemons = data.daemons || [];
+
+  if (daemons.length === 0) {
+    elements.drawerBody.innerHTML = '<div style="text-align:center; padding:25px; color:var(--text-tertiary);">No background worker daemons detected.</div>';
+    return;
+  }
+
+  let html = '<div style="display:flex; flex-direction:column; gap:6px;">';
+  daemons.forEach(d => {
+    html += `
+      <div class="model-item" style="align-items:flex-start;">
+        <div style="flex:1;">
+          <div style="font-family:var(--font-mono); font-size:10.5px; font-weight:700; color:var(--cyan-glow);">PID ${d.pid} • CPU: ${d.cpu}% • MEM: ${d.mem}%</div>
+          <div style="font-size:11.5px; color:var(--text-primary); margin-top:3px; word-break:break-all;">${d.cmd}</div>
+        </div>
+        <button class="chip-btn stop-btn" onclick="killDaemon(${d.pid})" style="padding:3px 8px; font-size:9.5px; margin-left:6px; height:22px;">Kill</button>
+      </div>
+    `;
+  });
+  html += '</div>';
+  elements.drawerBody.innerHTML = html;
+}
+
+window.killDaemon = async function(pid) {
+  haptic(30);
+  if (confirm(`Kill background PID ${pid}?`)) {
+    await fetch('/api/daemons/kill', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pid })
+    });
+    renderDaemonsTab();
+  }
+};
+
+function renderSlashTab(slashCmds) {
+  let html = '<div style="display:flex; flex-direction:column; gap:6px;">';
+  slashCmds.forEach(s => {
+    html += `
+      <div class="model-item" onclick="triggerSlashCommand('${s.cmd}')">
+        <div>
+          <div style="font-weight:700; font-size:12.5px; color:var(--purple-glow); font-family:var(--font-mono);">${s.cmd} — ${s.title}</div>
+          <div style="font-size:11px; color:var(--text-secondary); margin-top:2px;">${s.desc}</div>
+        </div>
+        <button class="chip-btn highlight" style="font-size:10px; height:22px; padding:2px 8px;">Trigger</button>
+      </div>
+    `;
+  });
+  html += '</div>';
+  elements.drawerBody.innerHTML = html;
+}
+
+window.triggerSlashCommand = function(cmd) {
+  haptic(25);
+  closeDrawer();
+  elements.promptInput.value = `${cmd} `;
+  elements.promptInput.focus();
+};
+
+function renderThemesTab() {
+  const themes = [
+    { id: 'matrix', name: 'Matrix Emerald', desc: 'Neon green cyberpunk aesthetic', color: '#10b981' },
+    { id: 'cyber', name: 'Cyber Cyan', desc: 'Electric blue and cyan highlights', color: '#06b6d4' },
+    { id: 'oled', name: 'OLED Obsidian', desc: 'True pitch-black pure contrast', color: '#64748b' },
+    { id: 'sunset', name: 'Sunset Amber', desc: 'Warm titanium golden amber aura', color: '#f59e0b' }
+  ];
+
+  let html = '<div style="display:flex; flex-direction:column; gap:6px;">';
+  themes.forEach(th => {
+    html += `
+      <div class="model-item ${state.currentTheme === th.id ? 'active' : ''}" onclick="selectTheme('${th.id}')">
+        <div>
+          <div style="font-weight:700; font-size:12.5px; color:#fff; display:flex; align-items:center;">
+            <span class="theme-color-dot" style="background:${th.color};"></span>
+            <span>${th.name}</span>
+          </div>
+          <div style="font-size:11px; color:var(--text-secondary); margin-top:2px;">${th.desc}</div>
+        </div>
+        <button class="chip-btn ${state.currentTheme === th.id ? 'highlight' : ''}" style="font-size:10.5px; height:22px; padding:2px 8px;">${state.currentTheme === th.id ? 'Active' : 'Apply'}</button>
+      </div>
+    `;
+  });
+  html += '</div>';
+  elements.drawerBody.innerHTML = html;
+}
+
+window.selectTheme = function(themeId) {
+  haptic(25);
+  applyTheme(themeId);
+  renderThemesTab();
+};
+
+function openDrawer() {
+  haptic(20);
+  if (elements.drawerOverlay) elements.drawerOverlay.style.display = 'block';
+  renderDrawerContent();
+}
+
+function closeDrawer() {
+  if (elements.drawerOverlay) elements.drawerOverlay.style.display = 'none';
+  if (state.lensTimer) clearInterval(state.lensTimer);
+}
+
+// ----------------------------------------------------------------------
+// Models Modal
+// ----------------------------------------------------------------------
+async function fetchLiveModels() {
+  try {
+    const res = await fetch('/api/models');
+    const data = await res.json();
+    if (data.ok) {
+      if (data.current) {
+        state.activeModel = data.current;
+        if (elements.modelLabel) elements.modelLabel.textContent = formatShortModelName(data.current);
+      }
+      state.modelsList = data.models || DEFAULT_MODELS;
+    }
+  } catch (e) {}
+}
+
+function openModelModal() {
+  haptic(20);
+  if (!elements.modelModal || !elements.modelList) return;
+  elements.modelList.innerHTML = '';
+
+  const models = state.modelsList.length ? state.modelsList : DEFAULT_MODELS;
+  models.forEach(m => {
+    const isActive = state.activeModel.toLowerCase().includes(m.name.toLowerCase()) || m.name.toLowerCase().includes(state.activeModel.toLowerCase());
+    const item = document.createElement('div');
+    item.className = `model-item ${isActive ? 'active' : ''}`;
+    item.innerHTML = `
+      <div>
+        <div style="display:flex; align-items:center; gap:6px;">
+          <span style="font-weight:700; color:#fff; font-size:13px;">${m.name}</span>
+          <span class="brand-version" style="font-size:8.5px; padding:1px 4px;">${m.tag || 'AI'}</span>
+        </div>
+        <div style="font-size:11px; color:var(--text-secondary); margin-top:2px;">${m.desc || ''}</div>
+      </div>
+      <button class="chip-btn ${isActive ? 'highlight' : ''}" style="font-size:10.5px; height:22px; padding:2px 8px;">${isActive ? 'Active' : 'Select'}</button>
+    `;
+
+    item.onclick = async () => {
+      haptic(30);
+      elements.modelModal.style.display = 'none';
+      if (elements.modelLabel) elements.modelLabel.textContent = formatShortModelName(m.name);
+      state.activeModel = m.name;
+      await fetch('/api/models/select', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: m.name })
+      });
+    };
+
+    elements.modelList.appendChild(item);
+  });
+
+  elements.modelModal.style.display = 'block';
+}
+
+// ----------------------------------------------------------------------
+// History Modal
+// ----------------------------------------------------------------------
+async function openHistoryModal() {
+  haptic(20);
+  if (!elements.historyModal || !elements.historyList) return;
+  elements.historyList.innerHTML = '<div style="text-align:center; padding:20px; color:var(--text-tertiary);">Loading sessions...</div>';
+  elements.historyModal.style.display = 'block';
+
+  try {
+    const res = await fetch('/api/history');
+    const data = await res.json();
+    const sessions = data.sessions || [];
+
+    if (sessions.length === 0) {
+      elements.historyList.innerHTML = '<div style="text-align:center; padding:20px; color:var(--text-tertiary);">No saved sessions.</div>';
+      return;
+    }
+
+    elements.historyList.innerHTML = '';
+    sessions.forEach(s => {
+      const item = document.createElement('div');
+      item.className = 'history-item';
+      item.innerHTML = `
+        <div style="flex:1;">
+          <div style="font-weight:700; color:#fff; font-size:12.5px;">${s.title}</div>
+          <div style="font-size:10.5px; color:var(--text-tertiary);">${new Date(s.modified).toLocaleString()}</div>
+        </div>
+        <span style="font-size:10.5px; color:var(--emerald-glow);">Active</span>
+      `;
+      elements.historyList.appendChild(item);
+    });
+  } catch (e) {
+    elements.historyList.innerHTML = '<div style="color:var(--rose-glow); padding:20px;">Failed to load history.</div>';
+  }
+}
+
+// ----------------------------------------------------------------------
+// Event Listeners Initialization
+// ----------------------------------------------------------------------
+function initEventListeners() {
+  if (elements.sendBtn) elements.sendBtn.addEventListener('click', sendMessage);
+  
+  if (elements.promptInput) {
+    elements.promptInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        sendMessage();
+      }
+    });
+
+    elements.promptInput.addEventListener('input', () => {
+      elements.promptInput.style.height = '32px';
+      elements.promptInput.style.height = Math.min(elements.promptInput.scrollHeight, 120) + 'px';
+    });
+  }
+
+  if (elements.stopBtn) {
+    elements.stopBtn.addEventListener('click', async () => {
+      haptic(35);
+      await fetch('/api/stop', { method: 'POST' });
+    });
+  }
+
+  if (elements.newChatBtn) {
+    elements.newChatBtn.addEventListener('click', async () => {
+      haptic(30);
+      if (confirm('Start a fresh new chat session in Antigravity IDE?')) {
+        await fetch('/api/new-chat', { method: 'POST' });
+      }
+    });
+  }
+
+  if (elements.syncBtn) {
+    elements.syncBtn.addEventListener('click', syncChat);
+  }
+
+  if (elements.targetSwitchBtn) elements.targetSwitchBtn.addEventListener('click', toggleTarget);
+  if (elements.autoAcceptBtn) elements.autoAcceptBtn.addEventListener('click', toggleAutoAccept);
+  if (elements.brandBadge) elements.brandBadge.addEventListener('click', openDrawer);
+  if (elements.modelBtn) elements.modelBtn.addEventListener('click', openModelModal);
+  if (elements.historyBtn) elements.historyBtn.addEventListener('click', openHistoryModal);
+  if (elements.scrollToBottomBtn) elements.scrollToBottomBtn.addEventListener('click', scrollToBottom);
+  if (elements.chatViewport) elements.chatViewport.addEventListener('scroll', handleScrollDetection);
+
+  // Search Toggle
+  if (elements.searchToggleBtn) {
+    elements.searchToggleBtn.addEventListener('click', () => {
+      haptic(15);
+      const isVisible = elements.chatSearchBar.style.display !== 'none';
+      elements.chatSearchBar.style.display = isVisible ? 'none' : 'flex';
+      if (!isVisible) {
+        elements.chatSearchInput.focus();
+      } else {
+        state.searchQuery = '';
+        renderMessages();
+      }
+    });
+  }
+
+  if (elements.chatSearchInput) {
+    elements.chatSearchInput.addEventListener('input', (e) => {
+      state.searchQuery = e.target.value;
+      renderMessages();
+    });
+  }
+
+  if (elements.searchCloseBtn) {
+    elements.searchCloseBtn.addEventListener('click', () => {
+      elements.chatSearchBar.style.display = 'none';
+      state.searchQuery = '';
+      if (elements.chatSearchInput) elements.chatSearchInput.value = '';
+      renderMessages();
+    });
+  }
+
+  // Modals & Drawer Closes
+  document.querySelectorAll('.sheet-close, .modal-overlay, .side-drawer-overlay').forEach(el => {
+    el.addEventListener('click', (e) => {
+      if (e.target === el || el.classList.contains('sheet-close')) {
+        if (elements.modelModal) elements.modelModal.style.display = 'none';
+        if (elements.historyModal) elements.historyModal.style.display = 'none';
+        if (elements.lensModal) elements.lensModal.style.display = 'none';
+        closeDrawer();
+      }
+    });
+  });
+
+  // Attach button
+  if (elements.attachBtn && elements.fileInput) {
+    elements.attachBtn.addEventListener('click', () => {
+      haptic(15);
+      elements.fileInput.click();
+    });
+
+    elements.fileInput.addEventListener('change', async () => {
+      const file = elements.fileInput.files[0];
+      if (!file) return;
+
+      const formData = new FormData();
+      formData.append('file', file);
+      try {
+        const res = await fetch('/api/upload', { method: 'POST', body: formData });
+        const data = await res.json();
+        if (data.ok) {
+          elements.promptInput.value += ` [Attached: ${data.file.path}] `;
+          elements.promptInput.focus();
+        }
+      } catch (e) {}
+    });
+  }
+
+  // Voice Dictation
+  if (elements.micBtn && ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window)) {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    state.speechRecognition = new SpeechRecognition();
+    state.speechRecognition.continuous = false;
+    state.speechRecognition.interimResults = false;
+
+    state.speechRecognition.onresult = (e) => {
+      const transcript = e.results[0][0].transcript;
+      elements.promptInput.value = (elements.promptInput.value + ' ' + transcript).trim();
+      elements.micBtn.classList.remove('recording');
+      state.isRecording = false;
+    };
+
+    state.speechRecognition.onerror = () => {
+      elements.micBtn.classList.remove('recording');
+      state.isRecording = false;
+    };
+
+    state.speechRecognition.onend = () => {
+      elements.micBtn.classList.remove('recording');
+      state.isRecording = false;
+    };
+
+    elements.micBtn.addEventListener('click', () => {
+      haptic(25);
+      if (state.isRecording) {
+        state.speechRecognition.stop();
+      } else {
+        state.speechRecognition.start();
+        elements.micBtn.classList.add('recording');
+        state.isRecording = true;
+      }
+    });
+  }
+}
+
+// ----------------------------------------------------------------------
+// Application Startup
+// ----------------------------------------------------------------------
+window.addEventListener('DOMContentLoaded', () => {
+  initEventListeners();
+  connectWebSocket();
+});

@@ -1,0 +1,8 @@
+node_modules/
+data/state.json
+data/*.tmp
+*.log
+.DS_Store
+dist/
+build/
+.env

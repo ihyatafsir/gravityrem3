@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>GravityRem3 — Flagship Remote Suite for Antigravity IDE</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Inter:wght@400;500;600;700;800&family=Outfit:wght@600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/gravityrem3.css">
+  <meta name="theme-color" content="#05080d">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+</head>
+<body class="theme-matrix">
+
+  <!-- Ambient Glow Background -->
+  <div id="ambient-mesh" class="ambient-mesh"></div>
+
+  <div class="app-container">
+
+    <!-- Top Telemetry Header -->
+    <header class="telemetry-header">
+      <div class="header-top">
+        <!-- Tapping Brand Logo Opens Master Suite Drawer -->
+        <div id="brand-badge" class="brand-badge" title="Open Suite Drawer">
+          <div class="brand-icon">
+            <svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+          </div>
+          <span class="brand-title">GRAVITYREM3</span>
+        </div>
+
+        <div class="header-actions">
+          <!-- Chat Search Toggle -->
+          <button id="search-toggle-btn" class="header-icon-btn" title="Search Conversation">
+            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          </button>
+
+          <!-- Target Switcher -->
+          <button id="target-switch-btn" class="header-pill-btn" title="Toggle Target (Host / VM)">
+            <span class="indicator-dot host"></span>
+            <span id="target-label">Host</span>
+          </button>
+
+          <!-- Auto Accept Toggle -->
+          <button id="auto-accept-btn" class="header-pill-btn" style="display: none;" title="Toggle Antigravity Auto Accept">
+            <span>Auto</span>
+          </button>
+
+          <!-- Model Switcher -->
+          <button id="model-btn" class="header-pill-btn" title="Switch Model">
+            <span class="model-tag">AI</span>
+            <span id="current-model-label">Gemini 3.7</span>
+          </button>
+
+          <!-- Live Status Indicator Dot -->
+          <div class="status-indicator" title="Connection Status">
+            <div id="status-dot" class="pulse-dot"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- In-Chat Search Bar (Hidden by default) -->
+      <div id="chat-search-bar" class="chat-search-bar" style="display: none;">
+        <span class="search-icon">
+          <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        </span>
+        <input type="text" id="chat-search-input" placeholder="Search conversation..." autocomplete="off">
+        <span id="search-count" class="search-count">0/0</span>
+        <button id="search-close-btn" class="search-close-btn">✕</button>
+      </div>
+
+      <!-- Compact Real-Time Telemetry Bar -->
+      <div class="telemetry-bar">
+        <div class="stat-item">
+          <span>CPU:</span>
+          <span id="cpu-stat" class="stat-val">--%</span>
+        </div>
+        <div class="stat-item">
+          <span>RAM:</span>
+          <span id="ram-stat" class="stat-val">--MB</span>
+        </div>
+        <div class="stat-item">
+          <span>CDP:</span>
+          <span id="cdp-status-stat" class="stat-val" style="color:var(--emerald-glow);">ONLINE</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- Chat Message Stream Viewport -->
+    <main id="chat-viewport" class="chat-viewport">
+      <!-- Dynamic messages injected here via app.js -->
+    </main>
+
+    <!-- Floating Scroll-To-Bottom Pill -->
+    <button id="scroll-bottom-btn" class="scroll-to-bottom-btn">
+      <span>↓</span> New Messages
+    </button>
+
+    <!-- Floating Control Dock & Input Center -->
+    <div class="floating-dock-container">
+
+      <!-- Interactive Permission & Action Prompt Card -->
+      <div id="action-prompt-card" class="action-prompt-card">
+        <div class="action-card-header">
+          <span id="action-title">Action Required</span>
+          <button class="action-dismiss-btn" onclick="dismissActionPrompt()">✕</button>
+        </div>
+        <div id="action-buttons-container" style="display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px;">
+          <!-- Action buttons injected dynamically -->
+        </div>
+      </div>
+
+      <!-- Queue Tray Bar (Visible when agent is busy) -->
+      <div id="queue-tray-bar" class="queue-tray-bar">
+        <div style="display: flex; align-items: center; gap: 6px;">
+          <span class="queue-badge" id="queue-count-badge">1</span>
+          <span id="queue-preview-text">Directive queued...</span>
+        </div>
+        <button onclick="clearMessageQueue()" style="background:none; border:none; color:var(--rose-glow); font-size:11px; font-weight:700; cursor:pointer;">Clear</button>
+      </div>
+
+      <!-- Quick Action Directives Carousel -->
+      <div class="quick-action-carousel">
+        <button class="chip-btn highlight" onclick="insertQuickPrompt('/goal ')">/goal</button>
+        <button class="chip-btn highlight" onclick="insertQuickPrompt('/schedule ')">/schedule</button>
+        <button class="chip-btn highlight" onclick="insertQuickPrompt('/grill-me')">/grill-me</button>
+        <button class="chip-btn highlight" onclick="insertQuickPrompt('/learn ')">/learn</button>
+        <button class="chip-btn" onclick="insertQuickPrompt('Proceed with implementation')">Proceed</button>
+        <button class="chip-btn" onclick="insertQuickPrompt('Verify and run tests')">Verify</button>
+        <button class="chip-btn" onclick="insertQuickPrompt('Explain architecture & files')">Explain</button>
+        <button class="chip-btn" onclick="insertQuickPrompt('Fix any syntax and runtime errors')">Fix Errors</button>
+      </div>
+
+      <!-- Dock Action Buttons -->
+      <div class="dock-actions">
+        <div class="dock-btn-group">
+          <button id="new-chat-btn" class="dock-icon-btn" title="New Chat Session">
+            <span>+</span> New
+          </button>
+          <button id="history-btn" class="dock-icon-btn" title="View Brain History">
+            History
+          </button>
+          <button id="sync-btn" class="dock-icon-btn" title="Force Sync Chat from IDE">
+            Sync
+          </button>
+        </div>
+
+        <button id="stop-btn" class="dock-icon-btn stop-btn" style="display: none;" title="Emergency Stop">
+          Stop Agent
+        </button>
+      </div>
+
+      <!-- Glassmorphic Prompt Input Bar -->
+      <div class="input-glass-panel">
+        <input type="file" id="file-upload-input" style="display: none;">
+        
+        <button id="attach-btn" class="attach-btn" title="Attach file or photo">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/></svg>
+        </button>
+
+        <textarea id="prompt-input" class="prompt-textarea" rows="1" placeholder="Message Antigravity IDE..."></textarea>
+
+        <div class="input-buttons">
+          <button id="mic-btn" class="mic-btn" title="Voice Dictation">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2M12 19v4M8 23h8"/></svg>
+          </button>
+          
+          <button id="send-btn" class="send-btn" title="Send Directive">
+            <svg viewBox="0 0 24 24" width="15" height="15"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+          </button>
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+
+  <!-- Specialized Antigravity Master Suite Left Slide Drawer -->
+  <div id="ag-drawer-overlay" class="side-drawer-overlay">
+    <div class="side-drawer-content">
+      <div class="drawer-header">
+        <div class="drawer-title">
+          <div class="brand-icon" style="width: 20px; height: 20px;">
+            <svg viewBox="0 0 24 24" style="width: 12px; height: 12px;"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+          </div>
+          Antigravity Master Suite
+        </div>
+        <button class="sheet-close">✕</button>
+      </div>
+
+      <div class="drawer-tabs">
+        <button class="drawer-tab active" data-tab="plan" onclick="switchDrawerTab('plan')">Plan</button>
+        <button class="drawer-tab" data-tab="lens" onclick="switchDrawerTab('lens')">Lens</button>
+        <button class="drawer-tab" data-tab="terminal" onclick="switchDrawerTab('terminal')">Shell</button>
+        <button class="drawer-tab" data-tab="tabs" onclick="switchDrawerTab('tabs')">Tabs</button>
+        <button class="drawer-tab" data-tab="kis" onclick="switchDrawerTab('kis')">Brain</button>
+        <button class="drawer-tab" data-tab="daemons" onclick="switchDrawerTab('daemons')">Tasks</button>
+        <button class="drawer-tab" data-tab="slash" onclick="switchDrawerTab('slash')">Slash</button>
+        <button class="drawer-tab" data-tab="themes" onclick="switchDrawerTab('themes')">Theme</button>
+      </div>
+
+      <div id="drawer-body" class="drawer-body">
+        <!-- Tab content rendered dynamically -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Visual Lens Zoom Modal -->
+  <div id="lens-modal" class="modal-overlay">
+    <div class="sheet-content lens-modal-content">
+      <div class="sheet-header">
+        <span class="sheet-title">Desktop Lens (High-Res)</span>
+        <button class="sheet-close" onclick="closeLensModal()">✕</button>
+      </div>
+      <div class="lens-modal-body">
+        <img id="lens-modal-img" src="" alt="Live Desktop View" class="lens-zoom-img">
+      </div>
+    </div>
+  </div>
+
+  <!-- Model Selector Bottom Sheet Modal -->
+  <div id="model-modal" class="modal-overlay">
+    <div class="sheet-content">
+      <div class="sheet-handle"></div>
+      <div class="sheet-header">
+        <span class="sheet-title">Select Intelligence Model</span>
+        <button class="sheet-close">✕</button>
+      </div>
+      <div id="model-list" class="model-list">
+        <!-- Model items rendered dynamically -->
+      </div>
+    </div>
+  </div>
+
+  <!-- History Drawer Bottom Sheet Modal -->
+  <div id="history-modal" class="modal-overlay">
+    <div class="sheet-content">
+      <div class="sheet-handle"></div>
+      <div class="sheet-header">
+        <span class="sheet-title">Brain Sessions</span>
+        <button class="sheet-close">✕</button>
+      </div>
+      <div id="history-list" class="history-list">
+        <!-- History items rendered dynamically -->
+      </div>
+    </div>
+  </div>
+
+  <script src="js/app.js"></script>
+</body>
+</html>
