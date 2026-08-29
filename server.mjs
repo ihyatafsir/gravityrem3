@@ -100,10 +100,25 @@ setInterval(() => {
   }
 }, 2500);
 
+function mergeMessageText(existingText, incomingText) {
+  if (!existingText || !incomingText) return incomingText || existingText || '';
+
+  const hasExistingCmd = /(?:^|\n)(?:Ran\s*\n|```bash[\s\S]*?```)/i.test(existingText);
+  if (hasExistingCmd) {
+    const cmdMatch = existingText.match(/((?:Ran\s*\n|```bash[\s\S]*?```)[\s\S]*?)(?=\n\n(?:[A-Z]|Worked for|Thought for)|$)/i);
+    if (cmdMatch) {
+      const cmdPart = cmdMatch[1].trim();
+      if (!incomingText.includes(cmdPart.slice(0, 30))) {
+        return cmdPart + '\n\n' + incomingText.trim();
+      }
+    }
+  }
+  return incomingText.trim();
+}
+
 cdpBridge.onNewMessage = (msg) => {
   if (!msg || !msg.text) return;
 
-  // Filter out pure animation strings or empty whitespace
   const cleanText = msg.text.replace(/Waiting for user input[\.]*/gi, '').trim();
   if (!cleanText) return;
 
@@ -126,14 +141,14 @@ cdpBridge.onNewMessage = (msg) => {
 
   // If same sender is agent and this is an in-flight extension / refinement of the last message
   if (last.from === normalizedMsg.from && normalizedMsg.from === 'agent') {
-    if (normalizedMsg.text.startsWith(last.text) || last.text.startsWith(normalizedMsg.text) ||
-        Math.abs(normalizedMsg.text.length - last.text.length) < 60) {
-      STATE.messages[lastIndex].text = normalizedMsg.text;
+    const mergedText = mergeMessageText(last.text, normalizedMsg.text);
+    if (mergedText !== last.text) {
+      STATE.messages[lastIndex].text = mergedText;
       STATE.messages[lastIndex].timestamp = normalizedMsg.timestamp;
       saveState();
       broadcast('message_update', { index: lastIndex, message: STATE.messages[lastIndex] });
-      return;
     }
+    return;
   }
 
   // Brand new message
