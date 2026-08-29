@@ -491,13 +491,24 @@ function renderMarkdown(text) {
 
   let raw = text.trim();
 
-  // 1. Layer 1: Thought Badge
+  // 1. Layer 1: Thought Badge & Collapsible Closed Box (Shows ONLY time by default)
   let thoughtHtml = "";
-  const thoughtMatch = raw.match(/^(Thought for [0-9smh\s]+|Worked for [0-9smh\s]+|Thinking Process:?)/i);
-  if (thoughtMatch) {
-    const title = thoughtMatch[1].trim();
-    thoughtHtml = `\n<details class="thought-card">\n<summary class="thought-summary">\n<span class="thought-title">${title}</span>\n<span class="thought-chevron">▾ Details</span>\n</summary>\n<div class="thought-content">Reasoning and tool execution completed</div>\n</details>\n\n`;
-    raw = raw.slice(thoughtMatch[0].length).trim();
+  const thoughtHeaderMatch = raw.match(/^(Thought for [0-9smh\s]+|Worked for [0-9smh\s]+|Thinking Process:?)/i);
+  if (thoughtHeaderMatch) {
+    const title = thoughtHeaderMatch[1].trim();
+    raw = raw.slice(thoughtHeaderMatch[0].length).trim();
+
+    let thoughtBody = "Reasoning and tool execution completed";
+    const nextSectionIdx = raw.search(/(?:\n\n(?:```|###?|Step |Here |Check |I |The |All |Note:|📜|🛠️|🌟|🩺|🔍|\$\$|[A-Z\u{1F300}-\u{1F9FF}]))/u);
+    if (nextSectionIdx > 0) {
+      const candidateBody = raw.slice(0, nextSectionIdx).trim();
+      if (!candidateBody.startsWith("```") && !candidateBody.startsWith("#")) {
+        thoughtBody = candidateBody;
+        raw = raw.slice(nextSectionIdx).trim();
+      }
+    }
+
+    thoughtHtml = `\n<details class="thought-card">\n<summary class="thought-summary">\n<span class="thought-title">${title}</span>\n<span class="thought-chevron">▾</span>\n</summary>\n<div class="thought-content">${thoughtBody.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\n/g, "<br>")}</div>\n</details>\n\n`;
   }
 
   // 2. Layer 2: Extract all ```code blocks``` into dedicated styled containers

@@ -1935,3 +1935,71 @@ pre, pre code, .terminal-body, .terminal-body code, .code-container pre, .code-c
   padding: 2px 4px !important;
   white-space: nowrap !important;
 }
+
+/* ==========================================================================
+   Clean Closed Thought Box (Time Only in Summary, Expandable on Tap)
+   ========================================================================== */
+.thought-card {
+  background: rgba(255, 255, 255, 0.02) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 6px !important;
+  padding: 0 !important;
+  margin: 4px 0 8px 0 !important;
+  overflow: hidden !important;
+  width: fit-content !important;
+  max-width: 100% !important;
+  align-self: flex-start !important;
+}
+
+.thought-card[open] {
+  border-color: rgba(255, 255, 255, 0.16) !important;
+  width: 100% !important;
+}
+
+.thought-summary {
+  display: flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  padding: 4px 9px !important;
+  cursor: pointer !important;
+  font-size: 11px !important;
+  font-weight: 500 !important;
+  color: #94a3b8 !important;
+  user-select: none !important;
+  list-style: none !important;
+  background: rgba(255, 255, 255, 0.02) !important;
+}
+
+.thought-summary::-webkit-details-marker {
+  display: none !important;
+}
+
+.thought-title {
+  font-size: 11px !important;
+  font-weight: 500 !important;
+  color: #94a3b8 !important;
+}
+
+.thought-chevron {
+  font-size: 10px !important;
+  color: #64748b !important;
+  transition: transform 0.15s ease !important;
+}
+
+.thought-card[open] .thought-chevron {
+  transform: rotate(180deg) !important;
+}
+
+.thought-content {
+  padding: 8px 12px !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.06) !important;
+  background: #090d13 !important;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace !important;
+  font-size: 11px !important;
+  line-height: 1.45 !important;
+  color: #94a3b8 !important;
+  max-height: 240px !important;
+  overflow-y: auto !important;
+  word-break: break-word !important;
+  white-space: normal !important;
+}
