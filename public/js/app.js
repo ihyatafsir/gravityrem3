@@ -1486,8 +1486,8 @@ window.selectModelTier = async function(modelFullName) {
 async function openHistoryModal() {
   haptic(20);
   if (!elements.historyModal || !elements.historyList) return;
-  elements.historyList.innerHTML = '<div style="text-align:center; padding:20px; color:var(--text-tertiary);">Loading sessions...</div>';
-  elements.historyModal.style.display = 'block';
+  elements.historyList.innerHTML = '<div style="text-align:center; padding:20px; color:var(--text-tertiary);">Loading conversations...</div>';
+  elements.historyModal.style.display = 'flex';
 
   try {
     const res = await fetch('/api/history');
@@ -1495,31 +1495,60 @@ async function openHistoryModal() {
     const sessions = data.sessions || [];
 
     if (sessions.length === 0) {
-      elements.historyList.innerHTML = '<div style="text-align:center; padding:20px; color:var(--text-tertiary);">No saved sessions.</div>';
+      elements.historyList.innerHTML = '<div style="text-align:center; padding:20px; color:var(--text-tertiary);">No past conversations found.</div>';
       return;
     }
 
     elements.historyList.innerHTML = '';
     sessions.forEach(s => {
       const item = document.createElement('div');
-      item.className = 'history-item';
+      item.className = `history-item ${s.active ? 'active-chat' : ''}`;
+      item.onclick = () => selectHistoryChat(s.id, s.title, item);
       item.innerHTML = `
-        <div style="flex:1;">
-          <div style="font-weight:700; color:#fff; font-size:12.5px;">${s.title}</div>
-          <div style="font-size:10.5px; color:var(--text-tertiary);">${new Date(s.modified).toLocaleString()}</div>
+        <div style="flex:1; min-width:0; padding-right:10px;">
+          <div class="history-item-title">${s.title}</div>
+          <div class="history-item-subtitle">${s.subtitle || ''}</div>
         </div>
-        <span style="font-size:10.5px; color:var(--emerald-glow);">Active</span>
+        <div class="history-item-status">
+          ${s.active ? '<span class="history-badge active">Current</span>' : '<span class="history-badge switch">Open ➔</span>'}
+        </div>
       `;
       elements.historyList.appendChild(item);
     });
   } catch (e) {
-    elements.historyList.innerHTML = '<div style="color:var(--rose-glow); padding:20px;">Failed to load history.</div>';
+    elements.historyList.innerHTML = '<div style="color:var(--rose-glow); padding:20px; text-align:center;">Failed to load history.</div>';
   }
 }
 
-// ----------------------------------------------------------------------
-// Event Listeners Initialization
-// ----------------------------------------------------------------------
+window.selectHistoryChat = async function(id, title, itemEl) {
+  haptic(30);
+  if (itemEl) {
+    itemEl.style.opacity = '0.6';
+    const badge = itemEl.querySelector('.history-badge');
+    if (badge) badge.textContent = 'Switching...';
+  }
+
+  try {
+    const res = await fetch('/api/select-chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, title })
+    });
+    const data = await res.json();
+    if (data.ok) {
+      if (elements.historyModal) elements.historyModal.style.display = 'none';
+      renderMessages();
+      haptic(40);
+    } else {
+      alert('Failed to switch conversation: ' + (data.error || 'Unknown error'));
+      if (itemEl) itemEl.style.opacity = '1';
+    }
+  } catch (e) {
+    alert('Error connecting to server: ' + e.message);
+    if (itemEl) itemEl.style.opacity = '1';
+  }
+};
+
 function initEventListeners() {
   if (elements.sendBtn) elements.sendBtn.addEventListener('click', sendMessage);
   

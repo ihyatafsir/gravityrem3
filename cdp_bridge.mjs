@@ -1015,6 +1015,174 @@ class CdpBridge {
       return null;
     }
   }
+
+  async getChatHistory() {
+    const SCRAPE_EXP = `(async () => {
+      try {
+        let items = Array.from(document.querySelectorAll('div[id^="fastpick-item-"]'));
+        let opened = false;
+        if (items.length === 0) {
+          const btn = document.querySelector('a[data-tooltip-id="history-tooltip"]') ||
+                      document.querySelector('[data-past-conversations-toggle="true"]') ||
+                      document.querySelector('[data-tooltip-id*="past-conversations"]') ||
+                      document.querySelector('button[title*="Past Conversations"], a[title*="Past Conversations"]');
+          if (btn) {
+            btn.click();
+            opened = true;
+            await new Promise(r => setTimeout(r, 600));
+            items = Array.from(document.querySelectorAll('div[id^="fastpick-item-"]'));
+          }
+        }
+
+        const showMore = document.querySelector('[id^="fastpick-show-more"]');
+        if (showMore) {
+          try {
+            showMore.click();
+            await new Promise(r => setTimeout(r, 300));
+            items = Array.from(document.querySelectorAll('div[id^="fastpick-item-"]'));
+          } catch(e) {}
+        }
+
+        const chats = items.map(el => {
+          const id = el.id.replace("fastpick-item-", "");
+          const isSelected = el.getAttribute("aria-selected") === "true";
+          const lines = (el.innerText || "").split("\n").map(l => l.trim()).filter(Boolean);
+          const title = lines[0] || "Untitled Conversation";
+          let date = "Recent";
+          let workspace = "";
+          if (lines.length >= 3) {
+            workspace = lines[1];
+            date = lines[2];
+          } else if (lines.length === 2) {
+            date = lines[1];
+          }
+          return { id, title, workspace, date, isSelected };
+        }).filter(c => c.id && c.title !== "Start New Conversation");
+
+        if (opened) {
+          window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", code: "Escape", keyCode: 27 }));
+        }
+
+        return { ok: true, count: chats.length, chats };
+      } catch(e) {
+        return { ok: false, error: e.toString(), chats: [] };
+      }
+    })()`;
+
+    try {
+      let res = await this.evaluate(SCRAPE_EXP);
+      if (!res?.ok || !res?.chats?.length) {
+        for (const ctx of this.contexts) {
+          try {
+            const r = await this.send('Runtime.evaluate', {
+              expression: SCRAPE_EXP,
+              returnByValue: true,
+              awaitPromise: true,
+              contextId: ctx.id
+            });
+            if (r.result?.value?.ok && r.result?.value?.chats?.length) {
+              res = r.result.value;
+              break;
+            }
+          } catch(e) {}
+        }
+      }
+      return res;
+    } catch(e) {
+      return { ok: false, error: e.message, chats: [] };
+    }
+  }
+
+  async selectChat(chatId, title = '') {
+    const safeId = JSON.stringify(chatId || '');
+    const safeTitle = JSON.stringify(title || '');
+
+    const SELECT_EXP = `(async () => {
+      try {
+        const targetId = ${safeId};
+        const targetTitle = ${safeTitle};
+
+        let items = Array.from(document.querySelectorAll('div[id^="fastpick-item-"]'));
+        if (items.length === 0) {
+          const historyBtn = document.querySelector('a[data-tooltip-id="history-tooltip"]') ||
+                             document.querySelector('[data-past-conversations-toggle="true"]') ||
+                             document.querySelector('[data-tooltip-id*="past-conversations"]') ||
+                             document.querySelector('button[title*="Past Conversations"], a[title*="Past Conversations"]');
+          if (historyBtn) {
+            historyBtn.click();
+            await new Promise(r => setTimeout(r, 600));
+            items = Array.from(document.querySelectorAll('div[id^="fastpick-item-"]'));
+          }
+        }
+
+        let el = null;
+        if (targetId) {
+          el = document.getElementById("fastpick-item-" + targetId);
+        }
+        if (!el && targetTitle) {
+          const clean = targetTitle.toLowerCase().trim();
+          el = items.find(item => (item.innerText || "").toLowerCase().includes(clean));
+        }
+
+        if (!el) {
+          const showMore = document.querySelector('[id^="fastpick-show-more"]');
+          if (showMore) {
+            showMore.click();
+            await new Promise(r => setTimeout(r, 350));
+            items = Array.from(document.querySelectorAll('div[id^="fastpick-item-"]'));
+            if (targetId) el = document.getElementById("fastpick-item-" + targetId);
+            if (!el && targetTitle) {
+              const clean = targetTitle.toLowerCase().trim();
+              el = items.find(item => (item.innerText || "").toLowerCase().includes(clean));
+            }
+          }
+        }
+
+        if (!el) return { ok: false, error: "Conversation not found in history list" };
+
+        el.click();
+        try {
+          el.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, view: window }));
+          el.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, cancelable: true, view: window }));
+          el.dispatchEvent(new PointerEvent("pointerup", { bubbles: true, cancelable: true, view: window }));
+        } catch (e) {}
+
+        return { ok: true, id: targetId, title: targetTitle };
+      } catch(e) {
+        return { ok: false, error: e.toString() };
+      }
+    })()`;
+
+    try {
+      let res = await this.evaluate(SELECT_EXP);
+      if (!res?.ok) {
+        for (const ctx of this.contexts) {
+          try {
+            const r = await this.send('Runtime.evaluate', {
+              expression: SELECT_EXP,
+              returnByValue: true,
+              awaitPromise: true,
+              contextId: ctx.id
+            });
+            if (r.result?.value?.ok) {
+              res = r.result.value;
+              break;
+            }
+          } catch(e) {}
+        }
+      }
+
+      // Re-arm observer and sync
+      setTimeout(() => {
+        this.discoverContexts();
+        this.startObserver();
+      }, 500);
+
+      return res;
+    } catch(e) {
+      return { ok: false, error: e.message };
+    }
+  }
 }
 
 export const cdpBridge = new CdpBridge();

@@ -633,7 +633,24 @@ app.get('/api/state', (req, res) => {
 app.get('/api/status', (req, res) => res.json({ ok: true, cdp: cdpBridge.connected ? 'connected' : 'not_connected', target: cdpBridge.currentTarget, agent: STATE.agent, actions: STATE.actions, stats: getSystemStats() }));
 
 app.get('/api/history', async (req, res) => {
-  const brainDir = join(process.env.HOME || '/home/absolut7', '.gemini', 'antigravity-ide', 'brain');
+  try {
+    const ideHistory = await cdpBridge.getChatHistory();
+    if (ideHistory?.ok && ideHistory?.chats?.length > 0) {
+      return res.json({
+        ok: true,
+        source: 'ide_cdp',
+        sessions: ideHistory.chats.map(c => ({
+          id: c.id,
+          title: c.title,
+          subtitle: c.workspace ? `${c.workspace} • ${c.date}` : c.date,
+          active: !!c.isSelected
+        }))
+      });
+    }
+  } catch (e) {}
+
+  // Fallback to local brain dir if CDP history is empty
+  const brainDir = join(process.env.HOME || '/home/grem3', '.gemini', 'antigravity-ide', 'brain');
   const sessions = [];
   try {
     const entries = await readdir(brainDir);
@@ -648,13 +665,35 @@ app.get('/api/history', async (req, res) => {
             const firstLine = planRaw.split('\n').find(l => l.startsWith('# '));
             if (firstLine) title = firstLine.replace('# ', '').trim();
           } catch (e) {}
-          sessions.push({ id: entry, title, modified: st.mtime.toISOString(), mtimeMs: st.mtimeMs });
+          sessions.push({ id: entry, title, subtitle: new Date(st.mtime).toLocaleString(), mtimeMs: st.mtimeMs });
         }
       } catch (e) {}
     }
   } catch (e) {}
   sessions.sort((a, b) => b.mtimeMs - a.mtimeMs);
-  res.json({ ok: true, sessions: sessions.slice(0, 30) });
+  res.json({ ok: true, source: 'brain_fs', sessions: sessions.slice(0, 30) });
+});
+
+app.post('/api/select-chat', async (req, res) => {
+  const { id, title } = req.body || {};
+  if (!id && !title) return res.status(400).json({ ok: false, error: 'no_id_or_title' });
+
+  const result = await cdpBridge.selectChat(id, title);
+  if (result?.ok) {
+    // Reset state & trigger message sync
+    STATE.messages = [];
+    saveState();
+    broadcast('history_cleared');
+    setTimeout(async () => {
+      const messages = await cdpBridge.syncAllMessages();
+      if (messages?.length) {
+        STATE.messages = messages;
+        saveState();
+        broadcast('init_state', { messages: STATE.messages, agent: STATE.agent });
+      }
+    }, 600);
+  }
+  res.json(result);
 });
 
 app.post('/api/upload', upload.single('file'), (req, res) => {

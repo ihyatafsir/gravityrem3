@@ -2163,3 +2163,68 @@ pre, pre code, .terminal-body, .terminal-body code, .code-container pre, .code-c
   overflow-y: auto !important;
   white-space: pre-wrap !important;
 }
+
+/* ==========================================================================
+   History Conversation Item Styling
+   ========================================================================== */
+.history-item {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  padding: 10px 14px !important;
+  margin: 6px 0 !important;
+  background: rgba(255, 255, 255, 0.03) !important;
+  border: 1px solid rgba(255, 255, 255, 0.07) !important;
+  border-radius: 8px !important;
+  cursor: pointer !important;
+  transition: all 0.15s ease !important;
+  user-select: none !important;
+}
+
+.history-item:active {
+  background: rgba(255, 255, 255, 0.08) !important;
+  transform: scale(0.99) !important;
+}
+
+.history-item.active-chat {
+  border-color: rgba(52, 211, 153, 0.4) !important;
+  background: rgba(52, 211, 153, 0.06) !important;
+}
+
+.history-item-title {
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  color: #f8fafc !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+
+.history-item-subtitle {
+  font-size: 11px !important;
+  color: #94a3b8 !important;
+  margin-top: 3px !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+
+.history-badge {
+  font-size: 10.5px !important;
+  font-weight: 600 !important;
+  padding: 3px 8px !important;
+  border-radius: 4px !important;
+  white-space: nowrap !important;
+}
+
+.history-badge.active {
+  background: rgba(52, 211, 153, 0.15) !important;
+  color: #86efac !important;
+  border: 1px solid rgba(52, 211, 153, 0.3) !important;
+}
+
+.history-badge.switch {
+  background: rgba(56, 189, 248, 0.12) !important;
+  color: #7dd3fc !important;
+  border: 1px solid rgba(56, 189, 248, 0.25) !important;
+}
