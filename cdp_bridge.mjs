@@ -212,6 +212,13 @@ const EXPRESSION_SCRAPE_ALL_MESSAGES = `(() => {
       // Clean temporary animation text
       text = text.replace(/Waiting for user input[\.]*/gi, '').trim();
 
+      // Extract Thinking / Worked for Block
+      const thoughtBtn = a.querySelector('button[class*="tabular-nums"], [class*="thought"], [class*="thinking"], div[class*="tabular-nums"]');
+      const thoughtText = thoughtBtn ? thoughtBtn.innerText.trim() : '';
+      if (thoughtText && !text.toLowerCase().includes(thoughtText.toLowerCase())) {
+        text = thoughtText + '\n\n' + text;
+      }
+
       // Tool Blocks & Commands
       const toolBlocks = Array.from(a.querySelectorAll('div[class*="group/run-command"], div[class*="run-command"], div[class*="terminal"]'));
       if (toolBlocks.length > 0) {
