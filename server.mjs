@@ -335,6 +335,42 @@ app.post('/api/set-model', async (req, res) => {
   res.json({ ok: true, result });
 });
 
+// 6.2 Workspace Management
+app.get('/api/workspaces', async (req, res) => {
+  try {
+    const home = process.env.HOME || '/home/grem3';
+    const baseDirs = [home, join(home, 'Documents')];
+    const workspaces = [];
+    for (const base of baseDirs) {
+      try {
+        const entries = await readdir(base, { withFileTypes: true });
+        for (const e of entries) {
+          if (e.isDirectory() && !e.name.startsWith('.') && e.name !== 'node_modules') {
+            workspaces.push({ name: e.name, path: join(base, e.name) });
+          }
+        }
+      } catch (e) {}
+    }
+    res.json({ ok: true, workspaces, current: process.cwd() });
+  } catch (err) {
+    res.json({ ok: false, error: err.message });
+  }
+});
+
+app.post('/api/workspaces/open', async (req, res) => {
+  const { path: folderPath } = req.body;
+  if (!folderPath) return res.status(400).json({ ok: false, error: 'no_path' });
+  try {
+    const ideBin = process.env.ANTIGRAVITY_BIN || '/home/grem3/.local/share/antigravity/antigravity-ide';
+    exec(`"${ideBin}" "${folderPath}"`, (err) => {
+      console.log(`[WORKSPACE] Opened \${folderPath}`);
+    });
+    res.json({ ok: true, path: folderPath });
+  } catch (err) {
+    res.json({ ok: false, error: err.message });
+  }
+});
+
 // 6.1 Remote Terminal / Quick Shell
 app.post('/api/terminal/exec', (req, res) => {
   const { cmd, cwd } = req.body;

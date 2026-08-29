@@ -667,22 +667,26 @@ window.loadEarlierMessages = function() {
 function appendMessageUI(msg, scroll = true) {
   if (!elements.chatViewport) return;
 
-  const isUser = msg.from === 'user';
-  const row = document.createElement('div');
-  row.className = `message-row ${isUser ? 'user' : 'agent'}`;
+  const isUser = msg.from === "user";
+  const row = document.createElement("div");
+  row.className = `message-row ${isUser ? "user" : "agent"}`;
 
-  const timeStr = msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+  const timeStr = msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "";
 
-  row.innerHTML = `
-    <div class="message-meta">
-      <span class="message-avatar-tag">${isUser ? 'You' : 'Antigravity'}</span>
-      <span>•</span>
-      <span>${timeStr}</span>
-    </div>
-    <div class="message-bubble" onclick="openMessageActions(this, ${JSON.stringify(msg.text)})">
-      ${isUser ? escapeHtml(msg.text) : renderMarkdown(msg.text)}
-    </div>
+  const meta = document.createElement("div");
+  meta.className = "message-meta";
+  meta.innerHTML = `
+    <span class="message-avatar-tag">${isUser ? "You" : "Antigravity"}</span>
+    <span>•</span>
+    <span>${timeStr}</span>
   `;
+  row.appendChild(meta);
+
+  const bubble = document.createElement("div");
+  bubble.className = "message-bubble";
+  bubble.innerHTML = isUser ? escapeHtml(msg.text) : renderMarkdown(msg.text);
+  bubble.onclick = () => openMessageActions(bubble, msg.text);
+  row.appendChild(bubble);
 
   elements.chatViewport.appendChild(row);
 
