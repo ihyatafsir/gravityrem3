@@ -21,10 +21,10 @@ const EXPRESSION_CHECK_LAST_MESSAGE = `(() => {
   }
 
   let answer = '';
-  const textNodes = Array.from(a.querySelectorAll('.leading-relaxed.select-text, .rendered-markdown, .prose'));
+  const textNodes = Array.from(a.querySelectorAll('.rendered-markdown, .prose, .leading-relaxed.select-text')).filter(el => !el.closest('div[class*="run-command"], div[class*="group/run-command"], div[class*="terminal"]'));
   if (textNodes.length > 0) {
     answer = textNodes.map(t => t.innerText.trim()).filter(Boolean).join('\\n\\n');
-  } else if (a.innerText) {
+  } else if (!cmd && a.innerText) {
     answer = a.innerText.trim();
   }
 

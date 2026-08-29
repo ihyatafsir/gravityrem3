@@ -500,22 +500,50 @@ function renderMarkdown(text) {
     raw = raw.slice(thoughtMatch[0].length).trim();
   }
 
-  // 2. Layer 2: Terminal Command Box
-  let cmdHtml = "";
-  const codeBlockMatch = raw.match(/^```(?:bash|sh|shell)?\n([\s\S]*?)```/i);
-  const ranMatch = raw.match(/^((?:Ran|Run|Running|python3|bash|sh|echo|cat|grep|curl)\s*\n?[\s\S]*?)(?=(?:\n\n(?:[A-Z\u{1F300}-\u{1F9FF}]|Step |Here |Check |I |The |All |Note:|###?|🔍|\$\$))|$)/iu);
+  // 2. Layer 2: Extract all ```code blocks``` into dedicated styled containers
+  const codeBlocks = [];
+  raw = raw.replace(/```([a-zA-Z0-9_-]*)\n([\s\S]*?)```/g, (match, lang, code) => {
+    const placeholder = `__CODE_BLOCK_${codeBlocks.length}__`;
+    const langLabel = lang || "code";
+    let formattedCode = code.trim()
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;");
 
-  if (codeBlockMatch) {
-    const cmdBody = codeBlockMatch[1].trim();
-    cmdHtml = `\n<div class="terminal-card">\n<pre class="terminal-body"><code>${cmdBody.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")}</code></pre>\n</div>\n\n`;
-    raw = raw.slice(codeBlockMatch[0].length).trim();
-  } else if (ranMatch) {
-    let cleanCmd = ranMatch[1].replace(/^(?:Ran|Run|Running)\s*\n?/i, "").trim();
-    cmdHtml = `\n<div class="terminal-card">\n<pre class="terminal-body"><code>${cleanCmd.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")}</code></pre>\n</div>\n\n`;
-    raw = raw.slice(ranMatch[0].length).trim();
-  }
+    if (langLabel === "diff") {
+      formattedCode = formattedCode.split("\n").map(line => {
+        if (line.startsWith("+")) return `<span class="diff-add">${line}</span>`;
+        if (line.startsWith("-")) return `<span class="diff-del">${line}</span>`;
+        return line;
+      }).join("\n");
+    }
 
-  // 3. Layer 3: Answer Body (Remaining prose, markdown, tables, math)
+    codeBlocks.push(`
+      <div class="code-container">
+        <div class="code-header">
+          <span>${langLabel}</span>
+          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+        </div>
+        <pre><code class="language-${langLabel}">${formattedCode}</code></pre>
+      </div>
+    `);
+    return placeholder;
+  });
+
+  // 3. Layer 3: Catch any un-fenced script / terminal output dumps and put them into terminal cards
+  raw = raw.replace(/((?:(?:~[a-zA-Z0-9_\/.-]+|\/home\/[a-zA-Z0-9_\/.-]+|\$|>>>|Ran|Run)\s+[\s\S]*?)(?=(?:\n\n[A-Z\u{1F300}-\u{1F9FF}]|###?|Step |Here |Check |I |The |All |Note:|\$\$)|$))/giu, (match) => {
+    if (match.includes("$") || match.includes("python3") || match.includes("bash") || match.includes("Ran\n") || match.includes("Run\n")) {
+      const clean = match.trim()
+        .replace(/^(?:Ran|Run|Running)\s*\n?/i, "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
+      return `\n<div class="terminal-card"><pre class="terminal-body"><code>${clean}</code></pre></div>\n`;
+    }
+    return match;
+  });
+
+  // 4. Layer 4: Answer Body (Remaining prose, markdown, tables, math)
   let answerHtml = raw
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
@@ -606,30 +634,6 @@ function renderMarkdown(text) {
     return tableHtml;
   });
 
-  // Code Blocks & Diffs
-  answerHtml = answerHtml.replace(/```([a-zA-Z0-9_-]*)\n([\s\S]*?)```/g, (match, lang, code) => {
-    const langLabel = lang || "code";
-    let formattedCode = code.trim();
-
-    if (langLabel === "diff") {
-      formattedCode = formattedCode.split("\n").map(line => {
-        if (line.startsWith("+")) return `<span class="diff-add">${line}</span>`;
-        if (line.startsWith("-")) return `<span class="diff-del">${line}</span>`;
-        return line;
-      }).join("\n");
-    }
-
-    return `
-      <div class="code-container">
-        <div class="code-header">
-          <span>${langLabel}</span>
-          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
-        </div>
-        <pre><code class="language-${langLabel}">${formattedCode}</code></pre>
-      </div>
-    `;
-  });
-
   // Headings
   answerHtml = answerHtml.replace(/^### (.*$)/gim, "<h3 class=\"prose-h3\">$1</h3>");
   answerHtml = answerHtml.replace(/^## (.*$)/gim, "<h2 class=\"prose-h2\">$1</h2>");
@@ -645,6 +649,11 @@ function renderMarkdown(text) {
   answerHtml = answerHtml.replace(/\*([^\*]+)\*/g, "<em>$1</em>");
   answerHtml = answerHtml.replace(/\[([^\]]+)\]\(([^)]+)\)/g, "<a href=\"$2\" target=\"_blank\" class=\"prose-a\">$1</a>");
 
+  // Restore code block placeholders
+  codeBlocks.forEach((cbHtml, idx) => {
+    answerHtml = answerHtml.replace(`__CODE_BLOCK_${idx}__`, cbHtml);
+  });
+
   const rawParagraphs = answerHtml.split(/\n\n+/);
   const formattedAnswer = rawParagraphs.map(p => {
     const trimmed = p.trim();
@@ -655,7 +664,7 @@ function renderMarkdown(text) {
     return `<p>${trimmed.replace(/\n/g, "<br>")}</p>`;
   }).filter(Boolean).join("");
 
-  return (thoughtHtml + cmdHtml + formattedAnswer).trim();
+  return (thoughtHtml + formattedAnswer).trim();
 }
 
 window.copyCode = function(btn) {
