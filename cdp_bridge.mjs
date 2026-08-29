@@ -1,3 +1,49 @@
+const EXPRESSION_CHECK_LAST_MESSAGE = `(() => {
+  const articles = Array.from(document.querySelectorAll('div[role="article"]'));
+  if (!articles.length) return null;
+  const a = articles[articles.length - 1];
+  const label = (a.getAttribute('aria-label') || '').toLowerCase();
+  const isUser = label.includes('user') || a.classList.contains('user-message');
+
+  let thought = '';
+  const thoughtBtn = a.querySelector('button[class*="tabular-nums"]');
+  if (thoughtBtn && thoughtBtn.innerText) {
+    thought = thoughtBtn.innerText.trim();
+  }
+
+  let cmd = '';
+  const toolNodes = Array.from(a.querySelectorAll('div[class*="run-command"], div[class*="group/run-command"], div[class*="terminal"]'));
+  if (toolNodes.length > 0) {
+    const toolText = toolNodes.map(tn => tn.innerText.trim()).filter(Boolean).join('\\n');
+    if (toolText) {
+      cmd = String.fromCharCode(96,96,96) + "bash\\n" + toolText + "\\n" + String.fromCharCode(96,96,96);
+    }
+  }
+
+  let answer = '';
+  const textNodes = Array.from(a.querySelectorAll('.leading-relaxed.select-text, .rendered-markdown, .prose'));
+  if (textNodes.length > 0) {
+    answer = textNodes.map(t => t.innerText.trim()).filter(Boolean).join('\\n\\n');
+  } else if (a.innerText) {
+    answer = a.innerText.trim();
+  }
+
+  if (thought && answer.startsWith(thought)) {
+    answer = answer.slice(thought.length).trim();
+  }
+
+  let parts = [];
+  if (thought) parts.push(thought);
+  if (cmd) parts.push(cmd);
+  if (answer) parts.push(answer);
+
+  return {
+    from: isUser ? 'user' : 'agent',
+    text: parts.join('\\n\\n').trim(),
+    timestamp: new Date().toISOString()
+  };
+})()`;
+
 import WebSocket from 'ws';
 import http from 'http';
 
@@ -679,7 +725,11 @@ class CdpBridge {
           this.onActionDetected(actionsRes);
         }
 
-        // manual sync only
+        // Robust last-message live sync
+        const lastMsg = await this.evaluate(EXPRESSION_CHECK_LAST_MESSAGE);
+        if (lastMsg && lastMsg.text && this.onNewMessage) {
+          this.onNewMessage(lastMsg);
+        }
       } catch (e) {
       } finally {
         this.isHealthCheckInProgress = false;
