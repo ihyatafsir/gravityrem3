@@ -417,12 +417,10 @@ function updateAgentUI() {
     if (!workingBanner) {
       workingBanner = document.createElement('div');
       workingBanner.id = 'agent-working-banner';
-      workingBanner.className = 'thought-card';
+      workingBanner.className = 'agent-working-banner';
       workingBanner.innerHTML = `
-        <div style="display:flex; align-items:center; gap:7px;">
-          <div class="neutral-pulse-dot"></div>
-          <span style="font-size:11.5px; color:#94a3b8; font-weight:500;">Agent is thinking...</span>
-        </div>
+        <div class="neutral-pulse-dot"></div>
+        <span style="font-size:12px; color:#94a3b8; font-weight:500; letter-spacing:0.2px;">Agent is thinking...</span>
       `;
       elements.chatViewport.appendChild(workingBanner);
       if (!state.userScrolledUp) scrollToBottom();
