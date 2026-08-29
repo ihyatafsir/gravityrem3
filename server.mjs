@@ -107,7 +107,7 @@ function mergeAgentMessage(existingText, incomingText) {
   const thoughtMatch = existingText.match(/^(?:Thought for [0-9smh\s]+|Worked for [0-9smh\s]+|Thinking Process:?)/i);
   const thoughtPart = thoughtMatch ? thoughtMatch[0].trim() : '';
 
-  const cmdMatch = existingText.match(/((?:Ran|Run|Running)\s*\n[\s\S]*?)(?=\n\n(?:[A-Z\u{1F300}-\u{1F9FF}]|Step |Here |Check |I |The |All |Note:|###?|🔍|\$\$)|$)/iu);
+  const cmdMatch = existingText.match(/((?:Ran|Run|Running|python3|bash|sh)\s*\n?[\s\S]*?)(?=\n\n(?:[A-Z\u{1F300}-\u{1F9FF}]|Step |Here |Check |I |The |All |Note:|###?|🔍|\$\$)|$)/iu);
   const cmdPart = cmdMatch ? cmdMatch[1].trim() : '';
 
   let cleanIncoming = incomingText.trim();
@@ -149,7 +149,6 @@ cdpBridge.onNewMessage = (msg) => {
     return;
   }
 
-  // If same sender is agent, merge with existing message to preserve commands & answers
   if (last.from === normalizedMsg.from && normalizedMsg.from === 'agent') {
     const mergedText = mergeAgentMessage(last.text, normalizedMsg.text);
     if (mergedText !== last.text) {
@@ -624,7 +623,7 @@ server.on('upgrade', (request, socket, head) => {
 });
 
 wss.on('connection', async (ws) => {
-  await cdpBridge.syncAllMessages();
+  // init state directly from memory
   ws.send(JSON.stringify({
     event: 'init_state',
     payload: {

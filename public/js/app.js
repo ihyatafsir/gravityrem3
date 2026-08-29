@@ -475,25 +475,31 @@ function renderMarkdown(text) {
 
   let raw = text.trim();
 
-  // 1. Layer 1: Thought Badge (Single header line: Thought for Xs / Worked for Xs)
+  // 1. Layer 1: Thought Badge
   let thoughtHtml = "";
-  const thoughtHeaderMatch = raw.match(/^(Thought for [0-9smh\s]+|Worked for [0-9smh\s]+|Thinking Process:?)/i);
-  if (thoughtHeaderMatch) {
-    const title = thoughtHeaderMatch[1].trim();
+  const thoughtMatch = raw.match(/^(Thought for [0-9smh\s]+|Worked for [0-9smh\s]+|Thinking Process:?)/i);
+  if (thoughtMatch) {
+    const title = thoughtMatch[1].trim();
     thoughtHtml = `\n<details class="thought-card">\n<summary class="thought-summary">\n<span class="thought-title">${title}</span>\n<span class="thought-chevron">▾ Details</span>\n</summary>\n<div class="thought-content">Reasoning and tool execution completed</div>\n</details>\n\n`;
-    raw = raw.slice(thoughtHeaderMatch[0].length).trim();
+    raw = raw.slice(thoughtMatch[0].length).trim();
   }
 
-  // 2. Layer 2: Ran/Run Terminal Command Block
+  // 2. Layer 2: Terminal Command Box
   let cmdHtml = "";
-  const cmdMatch = raw.match(/^((?:Ran|Run|Running)\s*\n[\s\S]*?)(?=(?:\n\n(?:[A-Z\u{1F300}-\u{1F9FF}]|Step |Here |Check |I |The |All |Note:|###?|🔍|\$\$))|$)/iu);
-  if (cmdMatch) {
-    let cleanCmd = cmdMatch[1].replace(/^(?:Ran|Run|Running)\s*\n/i, "").trim();
+  const codeBlockMatch = raw.match(/^```(?:bash|sh|shell)?\n([\s\S]*?)```/i);
+  const ranMatch = raw.match(/^((?:Ran|Run|Running|python3|bash|sh|echo|cat|grep|curl)\s*\n?[\s\S]*?)(?=(?:\n\n(?:[A-Z\u{1F300}-\u{1F9FF}]|Step |Here |Check |I |The |All |Note:|###?|🔍|\$\$))|$)/iu);
+
+  if (codeBlockMatch) {
+    const cmdBody = codeBlockMatch[1].trim();
+    cmdHtml = `\n<div class="terminal-card">\n<pre class="terminal-body"><code>${cmdBody.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")}</code></pre>\n</div>\n\n`;
+    raw = raw.slice(codeBlockMatch[0].length).trim();
+  } else if (ranMatch) {
+    let cleanCmd = ranMatch[1].replace(/^(?:Ran|Run|Running)\s*\n?/i, "").trim();
     cmdHtml = `\n<div class="terminal-card">\n<pre class="terminal-body"><code>${cleanCmd.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")}</code></pre>\n</div>\n\n`;
-    raw = raw.slice(cmdMatch[0].length).trim();
+    raw = raw.slice(ranMatch[0].length).trim();
   }
 
-  // 3. Layer 3: Answer Body (Render prose, math, tables, code)
+  // 3. Layer 3: Answer Body (Remaining prose, markdown, tables, math)
   let answerHtml = raw
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
@@ -531,10 +537,6 @@ function renderMarkdown(text) {
       .replace(/\\times/g, "×")
       .replace(/\\div/g, "÷")
       .replace(/\\approx/g, "≈")
-      .replace(/\\le(q)?/g, "≤")
-      .replace(/\\ge(q)?/g, "≥")
-      .replace(/\\dots/g, "…")
-      .replace(/\\sqrt\{([^}]+)\}/g, "√($1)")
       .replace(/\^2/g, "²")
       .replace(/\^3/g, "³")
       .replace(/\^([0-9]+)/g, "<sup>$1</sup>")

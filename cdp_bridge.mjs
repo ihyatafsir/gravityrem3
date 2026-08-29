@@ -679,7 +679,7 @@ class CdpBridge {
           this.onActionDetected(actionsRes);
         }
 
-        await this.syncAllMessages();
+        // manual sync only
       } catch (e) {
       } finally {
         this.isHealthCheckInProgress = false;
