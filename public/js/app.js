@@ -489,18 +489,61 @@ function renderMarkdown(text) {
     return res;
   });
 
-  // Format Ran / Shell / Terminal Command Output into a clean scrollable Terminal Card (No Thunder, No Header)
+  // Separate Ran / Command Blocks from subsequent prose/reports
   html = html.replace(/(?:^|\n)(Ran\s*\n[\s\S]*)/gim, (m, terminalBlock) => {
-    const splitMatch = terminalBlock.match(/^(Ran\s*\n[\s\S]*?)(?:\n\n([A-Z][a-z0-9\s,.\x27"-]{20,}[\s\S]*))?$/s);
-    let termText = (splitMatch && splitMatch[1] ? splitMatch[1] : terminalBlock).trim();
-    const prose = splitMatch && splitMatch[2] ? splitMatch[2].trim() : "";
+    const lines = terminalBlock.split("\n");
+    let cmdLines = [];
+    let proseLines = [];
+    let isProse = false;
 
-    let res = `\n<div class="terminal-card">\n<pre class="terminal-body"><code>${termText}</code></pre>\n</div>\n\n`;
-    if (prose) res += prose;
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      if (!isProse) {
+        if (i > 1 && (line.startsWith("🔍") || line.startsWith("#") || line.startsWith("Component") || line.startsWith("Everything") || line.startsWith("I ") || line.startsWith("The ") || line.startsWith("All ") || line.startsWith("Checked "))) {
+          isProse = true;
+          proseLines.push(line);
+        } else {
+          cmdLines.push(line);
+        }
+      } else {
+        proseLines.push(line);
+      }
+    }
+
+    const cmdText = cmdLines.join("\n").trim();
+    const proseText = proseLines.join("\n").trim();
+
+    let res = "";
+    if (cmdText) {
+      res += `\n<div class="terminal-card">\n<pre class="terminal-body"><code>${cmdText}</code></pre>\n</div>\n\n`;
+    }
+    if (proseText) {
+      res += proseText;
+    }
     return res;
   });
 
-  // Tool Execution Blocks (No Thunder, Clean Scroll Box)
+  // Tab-separated tables
+  html = html.replace(/((?:[^\n\t]+\t[^\n\t]+(?:\t[^\n\t]+)*\r?\n?){2,})/g, (match) => {
+    const rows = match.trim().split("\n").map(r => r.trim());
+    if (rows.length < 2) return match;
+
+    let tableHtml = "<div class=\"markdown-table-wrapper\"><table class=\"markdown-table\">";
+    rows.forEach((row, rIdx) => {
+      const cells = row.split("\t").map(c => c.trim()).filter(Boolean);
+      if (cells.length > 1) {
+        if (rIdx === 0) {
+          tableHtml += "<thead><tr>" + cells.map(c => `<th>${c}</th>`).join("") + "</tr></thead><tbody>";
+        } else {
+          tableHtml += "<tr>" + cells.map(c => `<td>${c}</td>`).join("") + "</tr>";
+        }
+      }
+    });
+    tableHtml += "</tbody></table></div>";
+    return tableHtml;
+  });
+
+  // Tool Execution Blocks
   html = html.replace(/(?:^|\n)(?:> (?:Running Tool|Ran command|Tool Execution):?\s*\n)([\s\S]*?)(?=\n\n|$)/gim, (m, body) => {
     return `\n<div class="terminal-card">
       <pre class="terminal-body"><code>${body.trim()}</code></pre>
