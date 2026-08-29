@@ -478,21 +478,21 @@ function renderMarkdown(text) {
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;");
 
-  // Collapsible Thought Blocks
-  html = html.replace(/(?:^|\n)(Thought for [0-9smh\s]+|Worked for [0-9smh\s]+|Thinking Process)([\s\S]*?)(?=\n\n(?:#|```|>|Thought for|Worked for)|$)/gim, (m, title, thought) => {
-    return `\n<details class="thought-card" style="margin: 8px 0;">
-      <summary class="thought-summary">
-        <span class="thought-title">🧠 ${title.trim()}</span>
-        <span class="thought-chevron">▾ Details</span>
-      </summary>
-      <div class="thought-content">${thought.trim()}</div>
-    </details>\n`;
+  // Collapsible Thought Blocks (No Emoji, Minimalist Neutral Accordion)
+  html = html.replace(/(?:^|\n)(Thought for [0-9smh\s]+|Worked for [0-9smh\s]+|Thinking Process)([\s\S]*)/gim, (m, title, rest) => {
+    const splitMatch = rest.match(/^(.*?)(?:\n\n([A-Z][a-z0-9\s,.\x27"-]{15,}[\s\S]*))?$/s);
+    let thoughtBody = (splitMatch && splitMatch[1] ? splitMatch[1] : rest).trim();
+    const prose = splitMatch && splitMatch[2] ? splitMatch[2].trim() : "";
+
+    let res = `\n<details class="thought-card">\n<summary class="thought-summary">\n<span class="thought-title">${title.trim()}</span>\n<span class="thought-chevron">▾ Details</span>\n</summary>\n<div class="thought-content">${thoughtBody || "Thinking completed"}</div>\n</details>\n\n`;
+    if (prose) res += prose;
+    return res;
   });
 
   // Tool Execution Blocks
   html = html.replace(/(?:^|\n)(?:> ⚡ (?:Running Tool|Ran command|Tool Execution):?\s*\n)([\s\S]*?)(?=\n\n|$)/gim, (m, body) => {
     return `\n<div class="tool-execution-card">
-      <div class="tool-execution-header">⚡ Tool Execution</div>
+      <div class="tool-execution-header">Tool Execution</div>
       <div class="tool-execution-body">${body.trim()}</div>
     </div>\n`;
   });
@@ -581,14 +581,15 @@ function renderMarkdown(text) {
   html = html.replace(/\*([^\*]+)\*/g, "<em>$1</em>");
   html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, "<a href=\"$2\" target=\"_blank\" class=\"prose-a\">$1</a>");
 
-  const paragraphs = html.split(/\n\n+/);
-  return paragraphs.map(p => {
+  const rawParagraphs = html.split(/\n\n+/);
+  return rawParagraphs.map(p => {
     const trimmed = p.trim();
-    if (trimmed.startsWith("<div") || trimmed.startsWith("<details") || trimmed.startsWith("<h") || trimmed.startsWith("<ul") || trimmed.startsWith("<table")) {
+    if (!trimmed) return "";
+    if (trimmed.startsWith("<details") || trimmed.startsWith("<div") || trimmed.startsWith("<h") || trimmed.startsWith("<table")) {
       return trimmed;
     }
     return `<p>${trimmed.replace(/\n/g, "<br>")}</p>`;
-  }).join("");
+  }).filter(Boolean).join("");
 }
 
 window.copyCode = function(btn) {
