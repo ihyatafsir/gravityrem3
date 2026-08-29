@@ -1618,3 +1618,83 @@ window.addEventListener('DOMContentLoaded', () => {
   initEventListeners();
   connectWebSocket();
 });
+
+
+// ----------------------------------------------------------------------
+// Bulletproof Mobile Resilience & Auto-Wake Re-Sync (Permafix)
+// ----------------------------------------------------------------------
+async function fetchAppState(forceRender = false) {
+  try {
+    const res = await fetch('/api/state');
+    if (!res.ok) return;
+    const data = await res.json();
+    if (!data.ok) return;
+
+    // 1. Sync Telemetry & Target
+    if (data.stats) updateTelemetryUI(data.stats);
+
+    // 2. Sync Agent State & Auto-dispatch queue
+    if (data.agent) {
+      const wasBusy = state.agent.busy;
+      state.agent = data.agent;
+      updateAgentUI();
+      if (wasBusy && !state.agent.busy && state.messageQueue.length > 0) {
+        dispatchQueuedMessage();
+      }
+    }
+
+    // 3. Sync Action Prompts
+    if (data.actions) {
+      state.actions = data.actions;
+      updateActionsUI(data.actions);
+    }
+
+    // 4. Sync Messages Stream
+    if (Array.isArray(data.messages)) {
+      const serverMsgs = data.messages;
+      const clientCount = state.messages.length;
+      const serverCount = serverMsgs.length;
+
+      let hasChanged = forceRender || (clientCount !== serverCount);
+      if (!hasChanged && clientCount > 0 && serverCount > 0) {
+        const lastClient = state.messages[clientCount - 1];
+        const lastServer = serverMsgs[serverCount - 1];
+        if (lastClient.text !== lastServer.text || lastClient.from !== lastServer.from) {
+          hasChanged = true;
+        }
+      }
+
+      if (hasChanged) {
+        state.messages = serverMsgs;
+        renderMessages();
+      }
+    }
+  } catch (e) {}
+}
+
+// Keep-alive heartbeat & visibility reconnection
+function ensureLiveConnection() {
+  if (!state.ws || state.ws.readyState === WebSocket.CLOSED || state.ws.readyState === WebSocket.CLOSING) {
+    console.log('[PERMAFIX] Reconnecting WebSocket on wake...');
+    connectWebSocket();
+  } else if (state.ws.readyState === WebSocket.OPEN) {
+    try {
+      state.ws.send(JSON.stringify({ type: 'ping' }));
+    } catch (e) {}
+  }
+  fetchAppState();
+}
+
+// Instant wake listener for mobile screen unlock & tab switching
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') {
+    ensureLiveConnection();
+  }
+});
+
+window.addEventListener('focus', () => {
+  ensureLiveConnection();
+});
+
+// Periodic background polling fallback (3 seconds)
+setInterval(fetchAppState, 3000);

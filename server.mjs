@@ -594,6 +594,18 @@ app.get('/api/knowledge/:id', async (req, res) => {
 
 // 11. Stats, Status, History, Upload
 app.get('/api/stats', (req, res) => res.json({ ok: true, stats: getSystemStats() }));
+app.get('/api/state', (req, res) => {
+  res.json({
+    ok: true,
+    messages: STATE.messages,
+    agent: STATE.agent,
+    actions: STATE.actions,
+    stats: getSystemStats(),
+    target: cdpBridge.currentTarget,
+    cdpConnected: cdpBridge.connected
+  });
+});
+
 app.get('/api/status', (req, res) => res.json({ ok: true, cdp: cdpBridge.connected ? 'connected' : 'not_connected', target: cdpBridge.currentTarget, agent: STATE.agent, actions: STATE.actions, stats: getSystemStats() }));
 
 app.get('/api/history', async (req, res) => {
