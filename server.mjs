@@ -100,31 +100,10 @@ setInterval(() => {
   }
 }, 2500);
 
-function mergeMessageText(existingText, incomingText) {
-  if (!existingText || !incomingText) return incomingText || existingText || '';
-
-  const existingThoughtMatch = existingText.match(/(?:^|\n)(Thought for [0-9smh\s]+|Worked for [0-9smh\s]+|Thinking Process)/i);
-  const existingThought = existingThoughtMatch ? existingThoughtMatch[1].trim() : '';
-
-  const existingCmdMatch = existingText.match(/((?:Ran\s*\n|```bash[\s\S]*?```)[\s\S]*?)(?=\n\n(?:[A-Z]|Worked for|Thought for|Step|Here|1\.|🔍)|$)/i);
-  const existingCmd = existingCmdMatch ? existingCmdMatch[1].trim() : '';
-
-  let merged = incomingText.trim();
-
-  if (existingCmd && !merged.includes(existingCmd.slice(0, 30))) {
-    merged = existingCmd + '\n\n' + merged;
-  }
-
-  if (existingThought && !merged.toLowerCase().includes(existingThought.toLowerCase())) {
-    merged = existingThought + '\n\n' + merged;
-  }
-
-  return merged;
-}
-
 cdpBridge.onNewMessage = (msg) => {
   if (!msg || !msg.text) return;
 
+  // Filter out pure animation strings or empty whitespace
   const cleanText = msg.text.replace(/Waiting for user input[\.]*/gi, '').trim();
   if (!cleanText) return;
 
@@ -147,14 +126,14 @@ cdpBridge.onNewMessage = (msg) => {
 
   // If same sender is agent and this is an in-flight extension / refinement of the last message
   if (last.from === normalizedMsg.from && normalizedMsg.from === 'agent') {
-    const mergedText = mergeMessageText(last.text, normalizedMsg.text);
-    if (mergedText !== last.text) {
-      STATE.messages[lastIndex].text = mergedText;
+    if (normalizedMsg.text.startsWith(last.text) || last.text.startsWith(normalizedMsg.text) ||
+        Math.abs(normalizedMsg.text.length - last.text.length) < 60) {
+      STATE.messages[lastIndex].text = normalizedMsg.text;
       STATE.messages[lastIndex].timestamp = normalizedMsg.timestamp;
       saveState();
       broadcast('message_update', { index: lastIndex, message: STATE.messages[lastIndex] });
+      return;
     }
-    return;
   }
 
   // Brand new message
