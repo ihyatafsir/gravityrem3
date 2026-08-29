@@ -476,6 +476,47 @@ function renderMarkdown(text) {
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;");
 
+  // Math Formatting: Block equations $$ ... $$
+  html = html.replace(/\$\$([\s\S]*?)\$\$/g, (m, math) => {
+    let clean = math
+      .replace(/\\mathbf\{([^}]+)\}/g, "<strong>$1</strong>")
+      .replace(/\\text\{([^}]+)\}/g, "$1")
+      .replace(/\\begin\{aligned\}|\\end\{aligned\}/g, "")
+      .replace(/\\times/g, "×")
+      .replace(/\\div/g, "÷")
+      .replace(/\\approx/g, "≈")
+      .replace(/\\le(q)?/g, "≤")
+      .replace(/\\ge(q)?/g, "≥")
+      .replace(/\\dots/g, "…")
+      .replace(/\\sqrt\{([^}]+)\}/g, "√($1)")
+      .replace(/\^2/g, "²")
+      .replace(/\^3/g, "³")
+      .replace(/\^([0-9]+)/g, "<sup>$1</sup>")
+      .replace(/\\\\/g, "<br>")
+      .replace(/&amp;/g, " ")
+      .trim();
+    return `\n<div class="math-block">${clean}</div>\n`;
+  });
+
+  // Math Formatting: Inline equations $ ... $
+  html = html.replace(/\$([^$\n]+)\$/g, (m, math) => {
+    let clean = math
+      .replace(/\\mathbf\{([^}]+)\}/g, "<strong>$1</strong>")
+      .replace(/\\text\{([^}]+)\}/g, "$1")
+      .replace(/\\times/g, "×")
+      .replace(/\\div/g, "÷")
+      .replace(/\\approx/g, "≈")
+      .replace(/\\le(q)?/g, "≤")
+      .replace(/\\ge(q)?/g, "≥")
+      .replace(/\\dots/g, "…")
+      .replace(/\\sqrt\{([^}]+)\}/g, "√($1)")
+      .replace(/\^2/g, "²")
+      .replace(/\^3/g, "³")
+      .replace(/\^([0-9]+)/g, "<sup>$1</sup>")
+      .trim();
+    return `<span class="math-inline">${clean}</span>`;
+  });
+
   // Collapsible Thought Blocks (No Emoji, Minimalist Neutral Accordion)
   html = html.replace(/(?:^|\n)(Thought for [0-9smh\s]+|Worked for [0-9smh\s]+|Thinking Process)([\s\S]*)/gim, (m, title, rest) => {
     const splitMatch = rest.match(/^(.*?)(?:\n\n([A-Z][a-z0-9\s,.\x27"-]{15,}[\s\S]*))?$/s);
@@ -497,7 +538,7 @@ function renderMarkdown(text) {
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
       if (!isProse) {
-        if (i > 1 && (line.startsWith("🔍") || line.startsWith("#") || line.startsWith("Component") || line.startsWith("Everything") || line.startsWith("I ") || line.startsWith("The ") || line.startsWith("All ") || line.startsWith("Checked "))) {
+        if (i > 1 && (line.startsWith("🔍") || line.startsWith("#") || line.startsWith("Component") || line.startsWith("Everything") || line.startsWith("Here ") || line.startsWith("Step ") || line.startsWith("I ") || line.startsWith("The ") || line.startsWith("All ") || line.startsWith("Checked "))) {
           isProse = true;
           proseLines.push(line);
         } else {

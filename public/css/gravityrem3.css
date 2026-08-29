@@ -1718,3 +1718,33 @@ html, body {
   max-width: 100% !important;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2) !important;
 }
+
+/* ==========================================================================
+   Math Formula & Equation Styling
+   ========================================================================== */
+.math-block {
+  display: block !important;
+  background: rgba(255, 255, 255, 0.03) !important;
+  border-left: 2px solid #58a6ff !important;
+  padding: 6px 12px !important;
+  margin: 6px 0 !important;
+  border-radius: 4px !important;
+  font-family: 'JetBrains Mono', monospace !important;
+  font-size: 13.5px !important;
+  color: #f4f4f5 !important;
+  overflow-x: auto !important;
+  line-height: 1.5 !important;
+}
+
+.math-inline {
+  font-family: 'JetBrains Mono', monospace !important;
+  font-size: 13px !important;
+  color: #93c5fd !important;
+  padding: 1px 4px !important;
+  background: rgba(147, 197, 253, 0.08) !important;
+  border-radius: 3px !important;
+}
+
+#chat-viewport {
+  padding-bottom: calc(var(--sab) + 240px) !important;
+}
