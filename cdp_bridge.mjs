@@ -742,7 +742,7 @@ class CdpBridge {
       await this.send('Input.insertText', { text });
       await new Promise(r => setTimeout(r, 150));
 
-      // 4. Submit via Enter key and button click
+      // 4. Submit cleanly via Enter key (prevent clicking newly transformed stop button)
       await this.send('Input.dispatchKeyEvent', {
         type: 'rawKeyDown', key: 'Enter', code: 'Enter',
         windowsVirtualKeyCode: 13, nativeVirtualKeyCode: 13
@@ -751,11 +751,6 @@ class CdpBridge {
         type: 'keyUp', key: 'Enter', code: 'Enter',
         windowsVirtualKeyCode: 13, nativeVirtualKeyCode: 13
       });
-
-      await this.evaluate(`(() => {
-        const btn = document.querySelector('button[data-tooltip-id*="send"], button[aria-label*="Send" i]');
-        if (btn && !btn.disabled) btn.click();
-      })()`);
 
       return { ok: true, method: 'native_cdp_injection', length: text.length };
     } catch (e) {
