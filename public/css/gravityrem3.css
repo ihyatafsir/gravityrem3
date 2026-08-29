@@ -1748,3 +1748,39 @@ html, body {
 #chat-viewport {
   padding-bottom: calc(var(--sab) + 240px) !important;
 }
+
+/* ==========================================================================
+   Separated High-Fidelity Command & Thought Cards
+   ========================================================================== */
+.thought-card {
+  background: rgba(255, 255, 255, 0.035) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  border-radius: 8px !important;
+  margin: 6px 0 10px 0 !important;
+  overflow: hidden !important;
+}
+
+.terminal-card {
+  background: #0d1117 !important;
+  border: 1px solid #30363d !important;
+  border-radius: 8px !important;
+  margin: 10px 0 14px 0 !important;
+  overflow: hidden !important;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4) !important;
+}
+
+.terminal-body {
+  margin: 0 !important;
+  padding: 10px 14px !important;
+  max-height: 240px !important;
+  overflow-x: auto !important;
+  overflow-y: auto !important;
+  font-family: "JetBrains Mono", "Fira Code", ui-monospace, monospace !important;
+  font-size: 12px !important;
+  line-height: 1.5 !important;
+  color: #cbd5e1 !important;
+  background: #090d13 !important;
+  white-space: pre !important;
+  word-break: normal !important;
+  -webkit-overflow-scrolling: touch !important;
+}
