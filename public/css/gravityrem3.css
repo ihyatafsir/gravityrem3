@@ -1346,7 +1346,7 @@ html, body {
   color: #d4d4d8 !important;
 }
 
-.message-bubble code {
+.message-bubble :not(pre) > code {
   background: rgba(110, 118, 129, 0.2) !important;
   color: #f0f6fc !important;
   font-family: 'JetBrains Mono', monospace !important;
@@ -1700,4 +1700,22 @@ html, body {
   line-height: 1.55 !important;
   width: 100% !important;
   border-radius: 0 !important;
+}
+
+/* ==========================================================================
+   Clean Terminal & Preformatted Code (No White Highlighting)
+   ========================================================================== */
+pre, pre code, .terminal-body, .terminal-body code, .code-container pre, .code-container pre code {
+  background: transparent !important;
+  background-color: transparent !important;
+  padding: 0 !important;
+  border: none !important;
+  border-radius: 0 !important;
+  color: #cbd5e1 !important;
+  box-shadow: none !important;
+}
+
+.terminal-body, .code-container pre {
+  background: #090d13 !important;
+  padding: 10px 14px !important;
 }

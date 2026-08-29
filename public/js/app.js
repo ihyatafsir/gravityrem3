@@ -495,7 +495,8 @@ function renderMarkdown(text) {
     let termText = (splitMatch && splitMatch[1] ? splitMatch[1] : terminalBlock).trim();
     const prose = splitMatch && splitMatch[2] ? splitMatch[2].trim() : "";
 
-    let res = `\n<div class="terminal-card">\n<pre class="terminal-body"><code>${termText}</code></pre>\n</div>\n\n`;
+    let cleanCmd = termText.replace(/^Ran\s*\n/i, "").trim();
+    let res = `\n<div class="terminal-card">\n<pre class="terminal-body"><code>${cleanCmd}</code></pre>\n</div>\n\n`;
     if (prose) res += prose;
     return res;
   });
