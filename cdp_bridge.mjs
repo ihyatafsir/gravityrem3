@@ -198,9 +198,16 @@ const EXPRESSION_SCRAPE_ALL_MESSAGES = `(() => {
         text = lines.slice(0, -1).join('\n').trim();
       }
     } else {
-      if (text.startsWith('Worked for ') || text.startsWith('Thought for ')) {
-        const parts = text.split('\n\n');
-        if (parts.length > 1) text = parts.slice(1).join('\n\n');
+      // Preserve Thought for / Worked for so app.js renders collapsible thought cards
+      const toolBlocks = Array.from(a.querySelectorAll('div[class*="group/run-command"], div[class*="run-command"], div[class*="terminal"]'));
+      if (toolBlocks.length > 0) {
+        const toolText = toolBlocks.map(tb => {
+          const cmd = tb.innerText.trim();
+          return cmd ? "\`\`\`bash\n# Tool Execution\n" + cmd + "\n\`\`\`" : "";
+        }).filter(Boolean).join("\n\n");
+        if (toolText && !text.includes(toolText.slice(0, 30))) {
+          text = text ? (toolText + "\n\n" + text) : toolText;
+        }
       }
     }
 
