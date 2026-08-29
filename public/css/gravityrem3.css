@@ -402,7 +402,7 @@ html, body {
   flex: 1;
   overflow-y: auto;
   overflow-x: hidden;
-  padding: 12px 10px 175px;
+  padding: 12px 10px calc(var(--sab) + 215px);
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -1464,4 +1464,142 @@ html, body {
   background: rgba(6, 182, 212, 0.2);
   border-color: #06b6d4;
   color: #22d3ee;
+}
+
+/* ==========================================================================
+   Compact Minimalist Boxes & Neutral Thought Styling (v3.6)
+   ========================================================================== */
+.message-bubble {
+  padding: 8px 12px !important;
+  border-radius: 8px !important;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif !important;
+  font-size: 13.5px !important;
+  line-height: 1.5 !important;
+  letter-spacing: -0.01em !important;
+  word-break: break-word !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2) !important;
+}
+
+.message-row.user .message-bubble {
+  background: #27272a !important;
+  border: 1px solid #3f3f46 !important;
+  color: #f4f4f5 !important;
+  border-bottom-right-radius: 3px !important;
+}
+
+.message-row.agent .message-bubble {
+  background: #18181b !important;
+  border: 1px solid #27272a !important;
+  color: #e4e4e7 !important;
+  border-bottom-left-radius: 3px !important;
+  width: 100% !important;
+}
+
+/* Neutral Uncolored Thought Cards */
+.thought-card {
+  background: rgba(255, 255, 255, 0.025) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 6px !important;
+  margin: 6px 0 !important;
+  overflow: hidden !important;
+}
+
+.thought-card[open] {
+  border-color: rgba(255, 255, 255, 0.15) !important;
+}
+
+.thought-summary {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  padding: 5px 9px !important;
+  cursor: pointer !important;
+  list-style: none !important;
+  background: rgba(255, 255, 255, 0.015) !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+}
+
+.thought-title {
+  font-size: 11.5px !important;
+  font-weight: 500 !important;
+  color: #94a3b8 !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 5px !important;
+}
+
+.thought-chevron {
+  font-size: 9.5px !important;
+  color: #64748b !important;
+  font-weight: 500 !important;
+}
+
+.thought-content {
+  padding: 8px 10px !important;
+  background: #09090b !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.08) !important;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace !important;
+  font-size: 11.5px !important;
+  line-height: 1.45 !important;
+  color: #94a3b8 !important;
+  white-space: pre-wrap !important;
+  max-height: 280px !important;
+  overflow-y: auto !important;
+}
+
+/* Neutral Thinking Banner */
+#agent-working-banner {
+  background: rgba(255, 255, 255, 0.025) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 6px !important;
+  padding: 6px 10px !important;
+  margin: 6px 0 12px 0 !important;
+}
+
+.neutral-pulse-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #94a3b8;
+  box-shadow: 0 0 6px rgba(148, 163, 184, 0.5);
+  animation: pulseNeutral 1.2s infinite ease-in-out;
+}
+
+@keyframes pulseNeutral {
+  0%, 100% { opacity: 0.4; transform: scale(0.9); }
+  50% { opacity: 1; transform: scale(1.15); }
+}
+
+/* Compact Tool & Code Containers */
+.tool-execution-card, .code-container {
+  background: #0d1117 !important;
+  border: 1px solid #30363d !important;
+  border-radius: 6px !important;
+  margin: 6px 0 !important;
+  overflow: hidden !important;
+}
+
+.tool-execution-header, .code-header {
+  padding: 4px 9px !important;
+  background: #161b22 !important;
+  border-bottom: 1px solid #21262d !important;
+  font-family: 'JetBrains Mono', monospace !important;
+  font-size: 10.5px !important;
+  font-weight: 500 !important;
+  color: #8b949e !important;
+}
+
+.tool-execution-body {
+  padding: 8px 10px !important;
+  font-family: 'JetBrains Mono', monospace !important;
+  font-size: 11.5px !important;
+  line-height: 1.45 !important;
+  color: #cbd5e1 !important;
+}
+
+.code-container pre {
+  padding: 8px 10px !important;
+  font-size: 11.5px !important;
+  line-height: 1.45 !important;
 }
