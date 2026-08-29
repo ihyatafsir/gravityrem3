@@ -122,10 +122,21 @@ const EXPRESSION_SELECT_MODEL_BY_NAME = (modelName) => `(async () => {
   modelBtn.click();
   await new Promise(r => setTimeout(r, 450));
 
-  const items = Array.from(document.querySelectorAll('div[role="menuitem"], div[role="option"]'));
+  const items = Array.from(document.querySelectorAll('div[role="menuitem"], div[role="option"], [role="menuitem"]'));
   const match = items.find(el => {
-    const t = (el.innerText || '').toLowerCase();
-    return t.includes(searchName) || searchName.includes(t.split('\\n')[0].toLowerCase());
+    const t = (el.innerText || '').toLowerCase().trim();
+    if (t.includes(searchName) || searchName.includes(t.split('\n')[0].trim())) return true;
+    const cleanT = t.replace(/\s+/g, ' ');
+    const cleanSearch = searchName.replace(/\s+/g, ' ');
+    if (cleanT.includes(cleanSearch) || cleanSearch.includes(cleanT)) return true;
+    if (searchName.includes('3.7') && t.includes('3.7')) return true;
+    if (searchName.includes('sonnet') && t.includes('sonnet')) return true;
+    if (searchName.includes('opus') && t.includes('opus')) return true;
+    if (searchName.includes('3.1') && t.includes('3.1')) return true;
+    if (searchName.includes('3.6') && t.includes('3.6')) return true;
+    if (searchName.includes('3.5') && t.includes('3.5')) return true;
+    if (searchName.includes('gpt') && t.includes('gpt')) return true;
+    return false;
   });
 
   if (match) {

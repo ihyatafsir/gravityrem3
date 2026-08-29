@@ -29,25 +29,105 @@ const state = {
 };
 
 function formatShortModelName(name) {
-  if (!name) return 'Gemini 3.7';
-  if (name.includes('3.7')) return 'Gemini 3.7';
-  if (name.includes('3.6')) return 'Gemini 3.6';
-  if (name.includes('3.5')) return 'Gemini 3.5';
-  if (name.includes('3.1')) return 'Gemini 3.1';
-  if (name.includes('Sonnet')) return 'Sonnet 4.6';
-  if (name.includes('Opus')) return 'Opus 4.6';
-  if (name.includes('GPT')) return 'GPT-OSS';
-  return name.split(' ')[0];
+  if (!name) return "Gemini 3.7 (High)";
+  let short = "Gemini 3.7";
+  if (name.includes("3.7")) short = "Gemini 3.7";
+  else if (name.includes("3.6")) short = "Gemini 3.6";
+  else if (name.includes("3.5")) short = "Gemini 3.5";
+  else if (name.includes("3.1")) short = "3.1 Pro";
+  else if (name.includes("Sonnet")) short = "Sonnet 4.6";
+  else if (name.includes("Opus")) short = "Opus 4.6";
+  else if (name.includes("GPT")) short = "GPT-OSS";
+  else short = name.split(" ")[0];
+
+  let tier = "";
+  if (/high/i.test(name)) tier = "High";
+  else if (/medium/i.test(name)) tier = "Med";
+  else if (/low/i.test(name)) tier = "Low";
+  else if (/thinking/i.test(name)) tier = "Think";
+
+  return tier ? `${short} (${tier})` : short;
 }
 
-const DEFAULT_MODELS = [
-  { id: 'gemini-3.7-flash-high', name: 'Gemini 3.7 Flash High', tag: 'Fast', desc: 'Hybrid reasoning & rapid coding' },
-  { id: 'gemini-3.6-flash-medium', name: 'Gemini 3.6 Flash Medium', tag: 'Fast', desc: 'Balanced rapid agentic workflows' },
-  { id: 'gemini-3.5-flash-medium', name: 'Gemini 3.5 Flash Medium', tag: 'Fast', desc: 'Lightweight high-efficiency model' },
-  { id: 'gemini-3.1-pro-low', name: 'Gemini 3.1 Pro Low', tag: 'Deep', desc: 'Deep multi-step reasoning & planning' },
-  { id: 'claude-sonnet-4.6-thinking', name: 'Claude Sonnet 4.6 (Thinking)', tag: 'Thinking', desc: 'Anthropic deep chain-of-thought' },
-  { id: 'claude-opus-4.6-thinking', name: 'Claude Opus 4.6 (Thinking)', tag: 'Frontier', desc: 'Maximum architecture capability' },
-  { id: 'gpt-oss-120b-medium', name: 'GPT-OSS 120B (Medium)', tag: 'OSS', desc: 'Open-weights dense transformer' }
+const MODEL_FAMILIES = [
+  {
+    id: "gemini-3.7-flash",
+    name: "Gemini 3.7 Flash",
+    tag: "Flagship",
+    desc: "Google flagship hybrid reasoning & rapid coding",
+    tiers: [
+      { id: "gemini-3.7-flash-high", name: "High", fullName: "Gemini 3.7 Flash High", desc: "Maximum hybrid reasoning" },
+      { id: "gemini-3.7-flash-medium", name: "Medium", fullName: "Gemini 3.7 Flash Medium", desc: "Balanced reasoning & speed" },
+      { id: "gemini-3.7-flash-low", name: "Low", fullName: "Gemini 3.7 Flash Low", desc: "Low thinking latency" },
+      { id: "gemini-3.7-flash-standard", name: "Standard", fullName: "Gemini 3.7 Flash", desc: "Instant without thinking" }
+    ]
+  },
+  {
+    id: "gemini-3.6-flash",
+    name: "Gemini 3.6 Flash",
+    tag: "Fast",
+    desc: "Balanced rapid agentic workflows & tool execution",
+    tiers: [
+      { id: "gemini-3.6-flash-high", name: "High", fullName: "Gemini 3.6 Flash High", desc: "High reasoning tier" },
+      { id: "gemini-3.6-flash-medium", name: "Medium", fullName: "Gemini 3.6 Flash Medium", desc: "Standard medium tier" },
+      { id: "gemini-3.6-flash-low", name: "Low", fullName: "Gemini 3.6 Flash Low", desc: "Fast low latency tier" }
+    ]
+  },
+  {
+    id: "gemini-3.5-flash",
+    name: "Gemini 3.5 Flash",
+    tag: "Legacy",
+    desc: "Lightweight high-efficiency model",
+    tiers: [
+      { id: "gemini-3.5-flash-high", name: "High", fullName: "Gemini 3.5 Flash High", desc: "High reasoning" },
+      { id: "gemini-3.5-flash-medium", name: "Medium", fullName: "Gemini 3.5 Flash Medium", desc: "Balanced medium tier" },
+      { id: "gemini-3.5-flash-low", name: "Low", fullName: "Gemini 3.5 Flash Low", desc: "Low latency tier" }
+    ]
+  },
+  {
+    id: "gemini-3.1-pro",
+    name: "Gemini 3.1 Pro",
+    tag: "Deep Pro",
+    desc: "Deep multi-step reasoning & complex architecture",
+    tiers: [
+      { id: "gemini-3.1-pro-high", name: "High", fullName: "Gemini 3.1 Pro High", desc: "Maximum architecture reasoning" },
+      { id: "gemini-3.1-pro-medium", name: "Medium", fullName: "Gemini 3.1 Pro Medium", desc: "Balanced pro reasoning" },
+      { id: "gemini-3.1-pro-low", name: "Low", fullName: "Gemini 3.1 Pro Low", desc: "Standard pro tier" }
+    ]
+  },
+  {
+    id: "claude-sonnet-4.6",
+    name: "Claude Sonnet 4.6",
+    tag: "Thinking",
+    desc: "Anthropic deep chain-of-thought & code synthesis",
+    tiers: [
+      { id: "claude-sonnet-4.6-high", name: "Thinking (High)", fullName: "Claude Sonnet 4.6 (Thinking)", desc: "Extended reasoning depth" },
+      { id: "claude-sonnet-4.6-medium", name: "Thinking (Med)", fullName: "Claude Sonnet 4.6 (Thinking - Medium)", desc: "Balanced thinking" },
+      { id: "claude-sonnet-4.6-standard", name: "Standard", fullName: "Claude Sonnet 4.6", desc: "Standard direct execution" }
+    ]
+  },
+  {
+    id: "claude-opus-4.6",
+    name: "Claude Opus 4.6",
+    tag: "Frontier",
+    desc: "Maximum reasoning depth & frontier planning capability",
+    tiers: [
+      { id: "claude-opus-4.6-high", name: "Thinking (High)", fullName: "Claude Opus 4.6 (Thinking)", desc: "Deepest frontier reasoning" },
+      { id: "claude-opus-4.6-medium", name: "Thinking (Med)", fullName: "Claude Opus 4.6 (Thinking - Medium)", desc: "Balanced frontier thinking" },
+      { id: "claude-opus-4.6-standard", name: "Standard", fullName: "Claude Opus 4.6", desc: "Standard direct execution" }
+    ]
+  },
+  {
+    id: "gpt-oss-120b",
+    name: "GPT-OSS 120B",
+    tag: "OSS",
+    desc: "Open-weights dense transformer architecture",
+    tiers: [
+      { id: "gpt-oss-120b-high", name: "High", fullName: "GPT-OSS 120B (High)", desc: "High reasoning depth" },
+      { id: "gpt-oss-120b-medium", name: "Medium", fullName: "GPT-OSS 120B (Medium)", desc: "Standard medium tier" },
+      { id: "gpt-oss-120b-low", name: "Low", fullName: "GPT-OSS 120B (Low)", desc: "Fast low tier" }
+    ]
+  }
 ];
 
 const elements = {
@@ -776,6 +856,9 @@ async function renderDrawerContent() {
       case 'slash':
         renderSlashTab(data.slashCommands || []);
         break;
+      case 'models':
+        renderDrawerModelsTab();
+        break;
       case 'themes':
         renderThemesTab();
         break;
@@ -1183,44 +1266,81 @@ async function fetchLiveModels() {
   } catch (e) {}
 }
 
+function generateModelFamiliesHtml() {
+  let html = "";
+  MODEL_FAMILIES.forEach(fam => {
+    const isFamilyActive = fam.tiers.some(t => state.activeModel.toLowerCase().includes(t.fullName.toLowerCase()) || t.fullName.toLowerCase().includes(state.activeModel.toLowerCase()));
+
+    let tiersHtml = "";
+    fam.tiers.forEach(tier => {
+      const isTierActive = state.activeModel.toLowerCase().includes(tier.fullName.toLowerCase()) || tier.fullName.toLowerCase().includes(state.activeModel.toLowerCase());
+      const tierClass = tier.name.toLowerCase().includes("high") ? "tier-high" : (tier.name.toLowerCase().includes("low") ? "tier-low" : "tier-medium");
+
+      tiersHtml += `
+        <button class="submodel-pill ${tierClass} ${isTierActive ? "active" : ""}" onclick="selectModelTier('${tier.fullName}')">
+          ${isTierActive ? "● " : ""}${tier.name}
+        </button>
+      `;
+    });
+
+    html += `
+      <div class="model-family-card ${isFamilyActive ? "active-family" : ""}">
+        <div class="model-family-header">
+          <div class="model-family-title">
+            <span>${fam.name}</span>
+            <span class="brand-version" style="font-size:8.5px; padding:1px 4px;">${fam.tag}</span>
+          </div>
+        </div>
+        <div class="model-family-desc">${fam.desc}</div>
+        <div class="submodel-tiers-wrap">
+          <span class="submodel-tier-label">Submodels:</span>
+          ${tiersHtml}
+        </div>
+      </div>
+    `;
+  });
+  return html;
+}
+
 function openModelModal() {
   haptic(20);
   if (!elements.modelModal || !elements.modelList) return;
-  elements.modelList.innerHTML = '';
-
-  const models = state.modelsList.length ? state.modelsList : DEFAULT_MODELS;
-  models.forEach(m => {
-    const isActive = state.activeModel.toLowerCase().includes(m.name.toLowerCase()) || m.name.toLowerCase().includes(state.activeModel.toLowerCase());
-    const item = document.createElement('div');
-    item.className = `model-item ${isActive ? 'active' : ''}`;
-    item.innerHTML = `
-      <div>
-        <div style="display:flex; align-items:center; gap:6px;">
-          <span style="font-weight:700; color:#fff; font-size:13px;">${m.name}</span>
-          <span class="brand-version" style="font-size:8.5px; padding:1px 4px;">${m.tag || 'AI'}</span>
-        </div>
-        <div style="font-size:11px; color:var(--text-secondary); margin-top:2px;">${m.desc || ''}</div>
-      </div>
-      <button class="chip-btn ${isActive ? 'highlight' : ''}" style="font-size:10.5px; height:22px; padding:2px 8px;">${isActive ? 'Active' : 'Select'}</button>
-    `;
-
-    item.onclick = async () => {
-      haptic(30);
-      elements.modelModal.style.display = 'none';
-      if (elements.modelLabel) elements.modelLabel.textContent = formatShortModelName(m.name);
-      state.activeModel = m.name;
-      await fetch('/api/models/select', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: m.name })
-      });
-    };
-
-    elements.modelList.appendChild(item);
-  });
-
-  elements.modelModal.style.display = 'block';
+  elements.modelList.innerHTML = generateModelFamiliesHtml();
+  elements.modelModal.style.display = "flex";
 }
+
+function renderDrawerModelsTab() {
+  if (!elements.drawerBody) return;
+  elements.drawerBody.innerHTML = `
+    <div style="padding: 10px 0;">
+      <div style="font-size: 13px; font-weight: 700; color: #fff; margin-bottom: 8px;">Select AI Model & Thinking Tier</div>
+      ${generateModelFamiliesHtml()}
+    </div>
+  `;
+}
+
+window.selectModelTier = async function(modelFullName) {
+  haptic(30);
+  if (elements.modelModal) elements.modelModal.style.display = "none";
+  state.activeModel = modelFullName;
+  if (elements.modelLabel) elements.modelLabel.textContent = formatShortModelName(modelFullName);
+
+  if (state.drawerActiveTab === "models") {
+    renderDrawerModelsTab();
+  }
+
+  try {
+    const res = await fetch("/api/models/select", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: modelFullName })
+    });
+    const data = await res.json();
+    if (data.ok) {
+      console.log(`[MODEL] Switched to ${modelFullName}`);
+    }
+  } catch (e) {}
+};
 
 // ----------------------------------------------------------------------
 // History Modal
