@@ -373,8 +373,23 @@ const EXPRESSION_SETUP_OBSERVER = `(() => {
         const label = lastArticle.getAttribute('aria-label') || '';
         const isAgent = label.includes('Agent') || label.includes('response');
         
-        const textNode = lastArticle.querySelector('.leading-relaxed.select-text, .rendered-markdown, .prose') || lastArticle;
-        let text = textNode.innerText ? textNode.innerText.trim() : '';
+        const toolNode = lastArticle.querySelector('div[class*="run-command"], div[class*="group/run-command"], div[class*="terminal"]');
+        const textNode = lastArticle.querySelector('.rendered-markdown, .prose, .leading-relaxed.select-text');
+        
+        let text = '';
+        if (toolNode && !textNode) {
+          const cmdText = toolNode.innerText ? toolNode.innerText.trim() : '';
+          text = String.fromCharCode(96,96,96) + "bash\n" + cmdText + "\n" + String.fromCharCode(96,96,96);
+        } else if (textNode) {
+          text = textNode.innerText ? textNode.innerText.trim() : '';
+        } else if (lastArticle) {
+          let rawA = lastArticle.innerText ? lastArticle.innerText.trim() : '';
+          if (/^(?:Ran|Run|Running|python3|bash|sh|cat|grep|curl|echo|~\/|\/home\/|\$|>>>)\b/i.test(rawA)) {
+            text = String.fromCharCode(96,96,96) + "bash\n" + rawA.replace(/^(?:Ran|Run|Running)\s*\n?/i, "") + "\n" + String.fromCharCode(96,96,96);
+          } else {
+            text = rawA;
+          }
+        }
         
         if (text.startsWith('Worked for ') || text.startsWith('Thought for ')) {
           const parts = text.split('\\n\\n');

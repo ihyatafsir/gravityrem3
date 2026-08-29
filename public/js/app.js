@@ -511,7 +511,17 @@ function renderMarkdown(text) {
     thoughtHtml = `\n<details class="thought-card">\n<summary class="thought-summary">\n<span class="thought-title"><svg class="thought-icon" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a8 8 0 0 0-8 8c0 3 2 5.5 4 7v2a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2v-2c2-1.5 4-4 4-7a8 8 0 0 0-8-8z"/><path d="M9 21h6"/></svg>${title}</span>\n<span class="thought-chevron">▾</span>\n</summary>\n<div class="thought-content">${thoughtBody.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")}</div>\n</details>\n\n`;
   }
 
-  // 2. Layer 2: Extract all ```code blocks``` into dedicated styled containers
+  // 2. Layer 2: Instant Command Boxing from the very first token (Never flood screen)
+  let initialCmdHtml = "";
+  const leadingCmdMatch = raw.match(/^(?:(?:Ran|Run|Running)\s*\n?|(?:python3|bash|sh|cat|grep|curl|echo|~\/[a-zA-Z0-9_\/.-]+|\/home\/[a-zA-Z0-9_\/.-]+|\$|>>>)\s+)([\s\S]*?)(?=(?:\n\n(?:###?|Step |Here |Check |I |The |All |Note:|📜|🛠️|🌟|🩺|🔍|\$\$|[A-Z\u{1F300}-\u{1F9FF}]))|$)/u);
+
+  if (leadingCmdMatch && !raw.startsWith("```")) {
+    const fullCmdText = leadingCmdMatch[0].trim().replace(/^(?:Ran|Run|Running)\s*\n?/i, "");
+    initialCmdHtml = `\n<div class="terminal-card"><pre class="terminal-body"><code>${fullCmdText.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")}</code></pre></div>\n`;
+    raw = raw.slice(leadingCmdMatch[0].length).trim();
+  }
+
+  // 3. Layer 3: Extract all ```code blocks``` into dedicated styled containers
   const codeBlocks = [];
   raw = raw.replace(/```([a-zA-Z0-9_-]*)\n([\s\S]*?)```/g, (match, lang, code) => {
     const placeholder = `__CODE_BLOCK_${codeBlocks.length}__`;
@@ -541,7 +551,7 @@ function renderMarkdown(text) {
     return placeholder;
   });
 
-  // 3. Layer 3: Catch any un-fenced script / terminal output dumps and put them into terminal cards
+  // 4. Layer 4: Catch any remaining un-fenced script / terminal output dumps
   raw = raw.replace(/((?:(?:~[a-zA-Z0-9_\/.-]+|\/home\/[a-zA-Z0-9_\/.-]+|\$|>>>|Ran|Run)\s+[\s\S]*?)(?=(?:\n\n[A-Z\u{1F300}-\u{1F9FF}]|###?|Step |Here |Check |I |The |All |Note:|\$\$)|$))/giu, (match) => {
     if (match.includes("$") || match.includes("python3") || match.includes("bash") || match.includes("Ran\n") || match.includes("Run\n")) {
       const clean = match.trim()
@@ -554,7 +564,7 @@ function renderMarkdown(text) {
     return match;
   });
 
-  // 4. Layer 4: Answer Body (Remaining prose, markdown, tables, math)
+  // 5. Layer 5: Answer Body (Remaining prose, markdown, tables, math)
   let answerHtml = raw
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
@@ -659,6 +669,7 @@ function renderMarkdown(text) {
     answerHtml = answerHtml.replace(`__CODE_BLOCK_${idx}__`, cbHtml);
   });
 
+  // Paragraph wrapping
   const rawParagraphs = answerHtml.split(/\n\n+/);
   const formattedAnswer = rawParagraphs.map(p => {
     const trimmed = p.trim();
@@ -671,7 +682,7 @@ function renderMarkdown(text) {
     return `<p class=\"prose-p\">${trimmed.replace(/\n/g, "<br>")}</p>`;
   }).filter(Boolean).join("");
 
-  return (thoughtHtml + formattedAnswer).trim();
+  return (thoughtHtml + initialCmdHtml + formattedAnswer).trim();
 }
 
 window.copyCode = function(btn) {
