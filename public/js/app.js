@@ -491,7 +491,7 @@ function renderMarkdown(text) {
 
   let raw = text.trim();
 
-  // 1. Layer 1: Thought Badge & Collapsible Closed Box (Shows ONLY time by default)
+  // 1. Layer 1: Thought Badge & Collapsible Closed Box (Matches Antigravity IDE)
   let thoughtHtml = "";
   const thoughtHeaderMatch = raw.match(/^(Thought for [0-9smh\s]+|Worked for [0-9smh\s]+|Thinking Process:?)/i);
   if (thoughtHeaderMatch) {
@@ -508,7 +508,7 @@ function renderMarkdown(text) {
       }
     }
 
-    thoughtHtml = `\n<details class="thought-card">\n<summary class="thought-summary">\n<span class="thought-title">${title}</span>\n<span class="thought-chevron">▾</span>\n</summary>\n<div class="thought-content">${thoughtBody.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\n/g, "<br>")}</div>\n</details>\n\n`;
+    thoughtHtml = `\n<details class="thought-card">\n<summary class="thought-summary">\n<span class="thought-title"><svg class="thought-icon" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a8 8 0 0 0-8 8c0 3 2 5.5 4 7v2a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2v-2c2-1.5 4-4 4-7a8 8 0 0 0-8-8z"/><path d="M9 21h6"/></svg>${title}</span>\n<span class="thought-chevron">▾</span>\n</summary>\n<div class="thought-content">${thoughtBody.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")}</div>\n</details>\n\n`;
   }
 
   // 2. Layer 2: Extract all ```code blocks``` into dedicated styled containers
@@ -599,26 +599,6 @@ function renderMarkdown(text) {
     return `<span class="math-inline">${clean}</span>`;
   });
 
-  // Tab-separated tables
-  answerHtml = answerHtml.replace(/((?:[^\n\t]+\t[^\n\t]+(?:\t[^\n\t]+)*\r?\n?){2,})/g, (match) => {
-    const rows = match.trim().split("\n").map(r => r.trim());
-    if (rows.length < 2) return match;
-
-    let tableHtml = "<div class=\"markdown-table-wrapper\"><table class=\"markdown-table\">";
-    rows.forEach((row, rIdx) => {
-      const cells = row.split("\t").map(c => c.trim()).filter(Boolean);
-      if (cells.length > 1) {
-        if (rIdx === 0) {
-          tableHtml += "<thead><tr>" + cells.map(c => `<th>${c}</th>`).join("") + "</tr></thead><tbody>";
-        } else {
-          tableHtml += "<tr>" + cells.map(c => `<td>${c}</td>`).join("") + "</tr>";
-        }
-      }
-    });
-    tableHtml += "</tbody></table></div>";
-    return tableHtml;
-  });
-
   // Markdown Tables
   answerHtml = answerHtml.replace(/((?:\|[^\n]+\|\r?\n)+)/g, (tableMatch) => {
     const rows = tableMatch.trim().split("\n").map(r => r.trim());
@@ -650,13 +630,27 @@ function renderMarkdown(text) {
   answerHtml = answerHtml.replace(/^## (.*$)/gim, "<h2 class=\"prose-h2\">$1</h2>");
   answerHtml = answerHtml.replace(/^# (.*$)/gim, "<h1 class=\"prose-h1\">$1</h1>");
 
-  // Checkboxes
-  answerHtml = answerHtml.replace(/\[ \]\s*(.+)/g, "<span style=\"color:var(--text-secondary);\">[ ] $1</span>");
-  answerHtml = answerHtml.replace(/\[x\]\s*(.+)/gi, "<span style=\"color:var(--emerald-glow);\">[x] $1</span>");
+  // Dividers
+  answerHtml = answerHtml.replace(/^---$/gim, "<hr class=\"prose-hr\">");
+
+  // Blockquotes
+  answerHtml = answerHtml.replace(/^> (.*$)/gim, "<blockquote class=\"prose-quote\">$1</blockquote>");
+
+  // Unordered Lists
+  answerHtml = answerHtml.replace(/(?:^[ \t]*[-*] .+(?:\n[ \t]*[-*] .+)*)/gm, (listBlock) => {
+    const items = listBlock.split("\n").map(li => li.replace(/^[ \t]*[-*] /, "").trim()).filter(Boolean);
+    return `<ul class=\"prose-ul\">${items.map(it => `<li>${it}</li>`).join("")}</ul>`;
+  });
+
+  // Ordered Lists
+  answerHtml = answerHtml.replace(/(?:^[ \t]*\d+\. .+(?:\n[ \t]*\d+\. .+)*)/gm, (listBlock) => {
+    const items = listBlock.split("\n").map(li => li.replace(/^[ \t]*\d+\. /, "").trim()).filter(Boolean);
+    return `<ol class=\"prose-ol\">${items.map(it => `<li>${it}</li>`).join("")}</ol>`;
+  });
 
   // Inline formatting
-  answerHtml = answerHtml.replace(/`([^`]+)`/g, "<code>$1</code>");
-  answerHtml = answerHtml.replace(/\*\*([^\*]+)\*\*/g, "<strong>$1</strong>");
+  answerHtml = answerHtml.replace(/`([^`]+)`/g, "<code class=\"prose-code\">$1</code>");
+  answerHtml = answerHtml.replace(/\*\*([^\*]+)\*\*/g, "<strong class=\"prose-strong\">$1</strong>");
   answerHtml = answerHtml.replace(/\*([^\*]+)\*/g, "<em>$1</em>");
   answerHtml = answerHtml.replace(/\[([^\]]+)\]\(([^)]+)\)/g, "<a href=\"$2\" target=\"_blank\" class=\"prose-a\">$1</a>");
 
@@ -669,10 +663,12 @@ function renderMarkdown(text) {
   const formattedAnswer = rawParagraphs.map(p => {
     const trimmed = p.trim();
     if (!trimmed) return "";
-    if (trimmed.startsWith("<details") || trimmed.startsWith("<div") || trimmed.startsWith("<h") || trimmed.startsWith("<table")) {
+    if (trimmed.startsWith("<details") || trimmed.startsWith("<div") || trimmed.startsWith("<h") ||
+        trimmed.startsWith("<table") || trimmed.startsWith("<ul") || trimmed.startsWith("<ol") ||
+        trimmed.startsWith("<blockquote") || trimmed.startsWith("<hr")) {
       return trimmed;
     }
-    return `<p>${trimmed.replace(/\n/g, "<br>")}</p>`;
+    return `<p class=\"prose-p\">${trimmed.replace(/\n/g, "<br>")}</p>`;
   }).filter(Boolean).join("");
 
   return (thoughtHtml + formattedAnswer).trim();

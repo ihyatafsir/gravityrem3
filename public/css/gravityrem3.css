@@ -2003,3 +2003,163 @@ pre, pre code, .terminal-body, .terminal-body code, .code-container pre, .code-c
   word-break: break-word !important;
   white-space: normal !important;
 }
+
+/* ==========================================================================
+   Antigravity IDE High-Fidelity Typography & Text Flow
+   ========================================================================== */
+.message-bubble {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif !important;
+  font-size: 13.5px !important;
+  line-height: 1.6 !important;
+  color: #d1d5db !important;
+}
+
+.prose-p {
+  margin: 0 0 10px 0 !important;
+  line-height: 1.6 !important;
+  color: #d1d5db !important;
+}
+
+.prose-p:last-child {
+  margin-bottom: 0 !important;
+}
+
+.prose-strong {
+  color: #f8fafc !important;
+  font-weight: 600 !important;
+}
+
+.prose-h1 {
+  font-size: 16px !important;
+  font-weight: 700 !important;
+  color: #f8fafc !important;
+  margin: 14px 0 8px 0 !important;
+}
+
+.prose-h2 {
+  font-size: 14.5px !important;
+  font-weight: 700 !important;
+  color: #f8fafc !important;
+  margin: 12px 0 6px 0 !important;
+}
+
+.prose-h3 {
+  font-size: 13.5px !important;
+  font-weight: 600 !important;
+  color: #38bdf8 !important;
+  margin: 10px 0 4px 0 !important;
+}
+
+.prose-ul, .prose-ol {
+  margin: 6px 0 12px 0 !important;
+  padding-left: 20px !important;
+  color: #cbd5e1 !important;
+}
+
+.prose-ul li, .prose-ol li {
+  margin-bottom: 4px !important;
+  line-height: 1.55 !important;
+}
+
+.prose-code {
+  font-family: 'JetBrains Mono', 'Fira Code', monospace !important;
+  font-size: 12px !important;
+  background: rgba(255, 255, 255, 0.08) !important;
+  color: #7dd3fc !important;
+  padding: 2px 5px !important;
+  border-radius: 4px !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+}
+
+.prose-quote {
+  border-left: 3px solid #38bdf8 !important;
+  background: rgba(56, 189, 248, 0.05) !important;
+  padding: 6px 12px !important;
+  margin: 8px 0 !important;
+  border-radius: 0 4px 4px 0 !important;
+  color: #94a3b8 !important;
+  font-style: italic !important;
+}
+
+.prose-hr {
+  border: none !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.1) !important;
+  margin: 14px 0 !important;
+}
+
+/* Sleek Antigravity Thought Accordion */
+.thought-card {
+  background: transparent !important;
+  border: 1px solid rgba(255, 255, 255, 0.07) !important;
+  border-radius: 6px !important;
+  padding: 0 !important;
+  margin: 4px 0 10px 0 !important;
+  overflow: hidden !important;
+  width: fit-content !important;
+  max-width: 100% !important;
+  align-self: flex-start !important;
+  transition: all 0.2s ease !important;
+}
+
+.thought-card[open] {
+  background: rgba(15, 23, 42, 0.5) !important;
+  border-color: rgba(255, 255, 255, 0.14) !important;
+  width: 100% !important;
+}
+
+.thought-summary {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  padding: 4px 9px !important;
+  cursor: pointer !important;
+  font-size: 11.5px !important;
+  font-weight: 500 !important;
+  user-select: none !important;
+  list-style: none !important;
+  background: rgba(255, 255, 255, 0.02) !important;
+  border-radius: 5px !important;
+}
+
+.thought-summary::-webkit-details-marker {
+  display: none !important;
+}
+
+.thought-title {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 5px !important;
+  color: #86efac !important;
+  font-variant-numeric: tabular-nums !important;
+  font-size: 11.5px !important;
+  font-weight: 500 !important;
+}
+
+.thought-icon {
+  color: #4ade80 !important;
+  flex-shrink: 0 !important;
+}
+
+.thought-chevron {
+  font-size: 10px !important;
+  color: #64748b !important;
+  margin-left: 2px !important;
+  transition: transform 0.2s ease !important;
+}
+
+.thought-card[open] .thought-chevron {
+  transform: rotate(180deg) !important;
+}
+
+.thought-content {
+  padding: 8px 12px !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.06) !important;
+  background: rgba(9, 13, 19, 0.95) !important;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace !important;
+  font-size: 11.5px !important;
+  line-height: 1.5 !important;
+  color: #94a3b8 !important;
+  max-height: 250px !important;
+  overflow-y: auto !important;
+  white-space: pre-wrap !important;
+}
