@@ -478,9 +478,9 @@ function renderMarkdown(text) {
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;");
 
-  // Collapsible Thought Blocks (No Emoji, Minimalist Neutral Accordion)
+  // Format Thought Blocks (Collapsible Neutral Accordion)
   html = html.replace(/(?:^|\n)(Thought for [0-9smh\s]+|Worked for [0-9smh\s]+|Thinking Process)([\s\S]*)/gim, (m, title, rest) => {
-    const splitMatch = rest.match(/^(.*?)(?:\n\n([A-Z][a-z0-9\s,.\x27"-]{15,}[\s\S]*))?$/s);
+    const splitMatch = rest.match(/^(.*?)(?:\n\n([A-Z\u{1F300}-\u{1F9FF}][\s\S]*))?$/su);
     let thoughtBody = (splitMatch && splitMatch[1] ? splitMatch[1] : rest).trim();
     const prose = splitMatch && splitMatch[2] ? splitMatch[2].trim() : "";
 
@@ -489,19 +489,19 @@ function renderMarkdown(text) {
     return res;
   });
 
-  // Format Ran / Shell / Terminal Command Output into a clean scrollable Terminal Card (No Thunder, No Header)
-  html = html.replace(/(?:^|\n)(Ran\s*\n[\s\S]*)/gim, (m, terminalBlock) => {
-    const splitMatch = terminalBlock.match(/^(Ran\s*\n[\s\S]*?)(?:\n\n([A-Z][a-z0-9\s,.\x27"-]{20,}[\s\S]*))?$/s);
+  // Format Ran / Run / Running Command Output (No literal Ran/Run prefix, Single Thin Box)
+  html = html.replace(/(?:^|\n)((?:Ran|Run|Running)\s*\n[\s\S]*)/gim, (m, terminalBlock) => {
+    const splitMatch = terminalBlock.match(/^((?:Ran|Run|Running)\s*\n[\s\S]*?)(?:\n\n([A-Z\u{1F300}-\u{1F9FF}][\s\S]*))?$/su);
     let termText = (splitMatch && splitMatch[1] ? splitMatch[1] : terminalBlock).trim();
     const prose = splitMatch && splitMatch[2] ? splitMatch[2].trim() : "";
 
-    let cleanCmd = termText.replace(/^Ran\s*\n/i, "").trim();
+    let cleanCmd = termText.replace(/^(?:Ran|Run|Running)\s*\n/i, "").trim();
     let res = `\n<div class="terminal-card">\n<pre class="terminal-body"><code>${cleanCmd}</code></pre>\n</div>\n\n`;
     if (prose) res += prose;
     return res;
   });
 
-  // Tool Execution Blocks (No Thunder, Clean Scroll Box)
+  // Tool Execution Blocks
   html = html.replace(/(?:^|\n)(?:> (?:Running Tool|Ran command|Tool Execution):?\s*\n)([\s\S]*?)(?=\n\n|$)/gim, (m, body) => {
     return `\n<div class="terminal-card">
       <pre class="terminal-body"><code>${body.trim()}</code></pre>
@@ -559,6 +559,26 @@ function renderMarkdown(text) {
       }
     });
 
+    tableHtml += "</tbody></table></div>";
+    return tableHtml;
+  });
+
+  // Tab-separated tables
+  html = html.replace(/((?:[^\n\t]+\t[^\n\t]+(?:\t[^\n\t]+)*\r?\n?){2,})/g, (match) => {
+    const rows = match.trim().split("\n").map(r => r.trim());
+    if (rows.length < 2) return match;
+
+    let tableHtml = "<div class=\"markdown-table-wrapper\"><table class=\"markdown-table\">";
+    rows.forEach((row, rIdx) => {
+      const cells = row.split("\t").map(c => c.trim()).filter(Boolean);
+      if (cells.length > 1) {
+        if (rIdx === 0) {
+          tableHtml += "<thead><tr>" + cells.map(c => `<th>${c}</th>`).join("") + "</tr></thead><tbody>";
+        } else {
+          tableHtml += "<tr>" + cells.map(c => `<td>${c}</td>`).join("") + "</tr>";
+        }
+      }
+    });
     tableHtml += "</tbody></table></div>";
     return tableHtml;
   });
