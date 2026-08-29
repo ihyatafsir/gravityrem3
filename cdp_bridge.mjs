@@ -217,7 +217,7 @@ const EXPRESSION_SCRAPE_ALL_MESSAGES = `(() => {
       if (toolBlocks.length > 0) {
         const toolText = toolBlocks.map(tb => {
           const cmd = tb.innerText.trim();
-          return cmd ? "\n\`\`\`bash\n# Command Execution\n" + cmd + "\n\`\`\`\n" : "";
+          return cmd ? "\n\`\`\`bash\n" + cmd + "\n\`\`\`\n" : "";
         }).filter(Boolean).join("\n");
         if (toolText && !text.includes(toolText.slice(0, 30))) {
           text = text ? (toolText + "\n\n" + text) : toolText;

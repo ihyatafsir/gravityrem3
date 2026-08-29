@@ -489,23 +489,20 @@ function renderMarkdown(text) {
     return res;
   });
 
-  // Format Ran / Shell / Terminal Command Output into a scrollable Terminal Card
+  // Format Ran / Shell / Terminal Command Output into a clean scrollable Terminal Card (No Thunder, No Header)
   html = html.replace(/(?:^|\n)(Ran\s*\n[\s\S]*)/gim, (m, terminalBlock) => {
     const splitMatch = terminalBlock.match(/^(Ran\s*\n[\s\S]*?)(?:\n\n([A-Z][a-z0-9\s,.\x27"-]{20,}[\s\S]*))?$/s);
     let termText = (splitMatch && splitMatch[1] ? splitMatch[1] : terminalBlock).trim();
     const prose = splitMatch && splitMatch[2] ? splitMatch[2].trim() : "";
 
-    let res = `\n<div class="terminal-card">\n<div class="terminal-header">\n<span class="terminal-title">⚡ Command Output</span>\n</div>\n<pre class="terminal-body"><code>${termText}</code></pre>\n</div>\n\n`;
+    let res = `\n<div class="terminal-card">\n<pre class="terminal-body"><code>${termText}</code></pre>\n</div>\n\n`;
     if (prose) res += prose;
     return res;
   });
 
-  // Tool Execution Blocks
-  html = html.replace(/(?:^|\n)(?:> ⚡ (?:Running Tool|Ran command|Tool Execution):?\s*\n)([\s\S]*?)(?=\n\n|$)/gim, (m, body) => {
+  // Tool Execution Blocks (No Thunder, Clean Scroll Box)
+  html = html.replace(/(?:^|\n)(?:> (?:Running Tool|Ran command|Tool Execution):?\s*\n)([\s\S]*?)(?=\n\n|$)/gim, (m, body) => {
     return `\n<div class="terminal-card">
-      <div class="terminal-header">
-        <span class="terminal-title">Tool Execution</span>
-      </div>
       <pre class="terminal-body"><code>${body.trim()}</code></pre>
     </div>\n`;
   });
