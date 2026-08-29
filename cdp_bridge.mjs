@@ -1,7 +1,7 @@
 import WebSocket from 'ws';
 import http from 'http';
 
-let ACTIVE_TARGET = process.env.CDP_TARGET || 'vm';
+let ACTIVE_TARGET = 'vm';
 let CDP_PORT = ACTIVE_TARGET === 'vm' ? 9222 : 9223;
 const DEBUG = process.env.DEBUG === 'true';
 
