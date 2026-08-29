@@ -488,16 +488,83 @@ async function syncChat() {
 function renderMarkdown(text) {
   if (!text) return "";
 
-  let html = text
+  let raw = text.trim();
+
+  // =========================================================================
+  // Layer 1: Thinking Process Box (Always First)
+  // =========================================================================
+  let thoughtHtml = "";
+  if (/^(?:Thought for [0-9smh\s]+|Worked for [0-9smh\s]+|Thinking Process:?|Thought Process:?|Analyzing the [^\n]+)/i.test(raw)) {
+    const lines = raw.split("\n");
+    const firstLine = lines[0].trim();
+    let thoughtBodyLines = [];
+    let restLines = [];
+    let isRest = false;
+
+    for (let i = 1; i < lines.length; i++) {
+      const line = lines[i];
+      if (!isRest) {
+        if (line.startsWith("Ran") || line.startsWith("Here") || line.startsWith("Step") || line.startsWith("1.") || line.startsWith("🔍") || line.startsWith("#")) {
+          isRest = true;
+          restLines.push(line);
+        } else {
+          thoughtBodyLines.push(line);
+        }
+      } else {
+        restLines.push(line);
+      }
+    }
+
+    const title = firstLine.startsWith("Thought for") || firstLine.startsWith("Worked for") ? firstLine : "Thinking Process";
+    const body = thoughtBodyLines.join("\n").trim();
+    thoughtHtml = `\n<details class="thought-card">\n<summary class="thought-summary">\n<span class="thought-title">${title}</span>\n<span class="thought-chevron">▾ Details</span>\n</summary>\n<div class="thought-content">${body || "Reasoning and execution process completed"}</div>\n</details>\n\n`;
+
+    raw = restLines.join("\n").trim();
+  }
+
+  // =========================================================================
+  // Layer 2: Ran Command Box (Always Second)
+  // =========================================================================
+  let cmdHtml = "";
+  if (raw.startsWith("Ran")) {
+    const lines = raw.split("\n");
+    let cmdLines = [];
+    let answerLines = [];
+    let isAnswer = false;
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      if (!isAnswer) {
+        if (i > 1 && (line.startsWith("Here") || line.startsWith("Step") || line.startsWith("Check") || line.startsWith("1.") || line.startsWith("🔍") || line.startsWith("#") || line.startsWith("Note:") || line.startsWith("All") || line.startsWith("The"))) {
+          isAnswer = true;
+          answerLines.push(line);
+        } else {
+          cmdLines.push(line);
+        }
+      } else {
+        answerLines.push(line);
+      }
+    }
+
+    const fullCmd = cmdLines.join("\n").trim();
+    cmdHtml = `\n<div class="terminal-card">\n<pre class="terminal-body"><code>${fullCmd.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")}</code></pre>\n</div>\n\n`;
+    raw = answerLines.join("\n").trim();
+  }
+
+  // =========================================================================
+  // Layer 3: Answer Body (Always Third)
+  // =========================================================================
+  let answerHtml = raw
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;");
 
   // Math Formatting: Block equations $$ ... $$
-  html = html.replace(/\$\$([\s\S]*?)\$\$/g, (m, math) => {
+  answerHtml = answerHtml.replace(/\$\$([\s\S]*?)\$\$/g, (m, math) => {
     let clean = math
       .replace(/\\mathbf\{([^}]+)\}/g, "<strong>$1</strong>")
       .replace(/\\text\{([^}]+)\}/g, "$1")
+      .replace(/\\frac\{([^}]+)\}\{([^}]+)\}/g, "($1 / $2)")
       .replace(/\\begin\{aligned\}|\\end\{aligned\}/g, "")
       .replace(/\\times/g, "×")
       .replace(/\\div/g, "÷")
@@ -516,10 +583,11 @@ function renderMarkdown(text) {
   });
 
   // Math Formatting: Inline equations $ ... $
-  html = html.replace(/\$([^$\n]+)\$/g, (m, math) => {
+  answerHtml = answerHtml.replace(/\$([^$\n]+)\$/g, (m, math) => {
     let clean = math
       .replace(/\\mathbf\{([^}]+)\}/g, "<strong>$1</strong>")
       .replace(/\\text\{([^}]+)\}/g, "$1")
+      .replace(/\\frac\{([^}]+)\}\{([^}]+)\}/g, "($1 / $2)")
       .replace(/\\times/g, "×")
       .replace(/\\div/g, "÷")
       .replace(/\\approx/g, "≈")
@@ -534,23 +602,8 @@ function renderMarkdown(text) {
     return `<span class="math-inline">${clean}</span>`;
   });
 
-  // Collapsible Thought Indicator (Render as clean thought accordion)
-  html = html.replace(/(?:^|\n)(Thought for [0-9smh\s]+|Worked for [0-9smh\s]+|Thinking Process)(?=\n\n|$)/gim, (m, title) => {
-    return `\n<details class="thought-card">\n<summary class="thought-summary">\n<span class="thought-title">${title.trim()}</span>\n<span class="thought-chevron">▾ Details</span>\n</summary>\n<div class="thought-content">Reasoning & tool execution completed</div>\n</details>\n\n`;
-  });
-
-  // Format intermediate Chain-of-Thought / Analyzing text blocks into thought cards
-  html = html.replace(/(?:^|\n)((?:Analyzing the [^\n]+|Thinking Process:?|Thought Process:?|I've begun dissecting[^\n]*)\n[\s\S]*?)(?=(?:\n\n(?:Ran|Here|Step|1\.|###?|🔍|\$\$|[A-Z][a-z0-9\s,.]{20,}))|$)/gim, (m, thoughtBlock) => {
-    return `\n<details class="thought-card" open>\n<summary class="thought-summary">\n<span class="thought-title">Thinking Process</span>\n<span class="thought-chevron">▾ Details</span>\n</summary>\n<div class="thought-content">${thoughtBlock.trim()}</div>\n</details>\n\n`;
-  });
-
-  // Enclose entire Ran / Terminal Command execution block inside single Terminal Card
-  html = html.replace(/(?:^|\n)(Ran\s*\n[\s\S]*?)(?=\n\n(?:Here |Step |Check |I |The |All |Note:|###?|🔍|\$\$|[A-Z][a-z0-9\s,.]{20,}))/gim, (m, cmdBlock) => {
-    return `\n<div class="terminal-card">\n<pre class="terminal-body"><code>${cmdBlock.trim()}</code></pre>\n</div>\n\n`;
-  });
-
   // Tab-separated tables
-  html = html.replace(/((?:[^\n\t]+\t[^\n\t]+(?:\t[^\n\t]+)*\r?\n?){2,})/g, (match) => {
+  answerHtml = answerHtml.replace(/((?:[^\n\t]+\t[^\n\t]+(?:\t[^\n\t]+)*\r?\n?){2,})/g, (match) => {
     const rows = match.trim().split("\n").map(r => r.trim());
     if (rows.length < 2) return match;
 
@@ -569,15 +622,8 @@ function renderMarkdown(text) {
     return tableHtml;
   });
 
-  // Tool Execution Blocks
-  html = html.replace(/(?:^|\n)(?:> (?:Running Tool|Ran command|Tool Execution):?\s*\n)([\s\S]*?)(?=\n\n|$)/gim, (m, body) => {
-    return `\n<div class="terminal-card">
-      <pre class="terminal-body"><code>${body.trim()}</code></pre>
-    </div>\n`;
-  });
-
   // Code Blocks & Diffs
-  html = html.replace(/```([a-zA-Z0-9_-]*)\n([\s\S]*?)```/g, (match, lang, code) => {
+  answerHtml = answerHtml.replace(/```([a-zA-Z0-9_-]*)\n([\s\S]*?)```/g, (match, lang, code) => {
     const langLabel = lang || "code";
     let formattedCode = code.trim();
 
@@ -601,12 +647,12 @@ function renderMarkdown(text) {
   });
 
   // Headings
-  html = html.replace(/^### (.*$)/gim, "<h3 class=\"prose-h3\">$1</h3>");
-  html = html.replace(/^## (.*$)/gim, "<h2 class=\"prose-h2\">$1</h2>");
-  html = html.replace(/^# (.*$)/gim, "<h1 class=\"prose-h1\">$1</h1>");
+  answerHtml = answerHtml.replace(/^### (.*$)/gim, "<h3 class=\"prose-h3\">$1</h3>");
+  answerHtml = answerHtml.replace(/^## (.*$)/gim, "<h2 class=\"prose-h2\">$1</h2>");
+  answerHtml = answerHtml.replace(/^# (.*$)/gim, "<h1 class=\"prose-h1\">$1</h1>");
 
   // Markdown Tables
-  html = html.replace(/((?:\|[^\n]+\|\r?\n)+)/g, (tableMatch) => {
+  answerHtml = answerHtml.replace(/((?:\|[^\n]+\|\r?\n)+)/g, (tableMatch) => {
     const rows = tableMatch.trim().split("\n").map(r => r.trim());
     if (rows.length < 2) return tableMatch;
 
@@ -632,17 +678,17 @@ function renderMarkdown(text) {
   });
 
   // Checkboxes
-  html = html.replace(/\[ \]\s*(.+)/g, "<span style=\"color:var(--text-secondary);\">[ ] $1</span>");
-  html = html.replace(/\[x\]\s*(.+)/gi, "<span style=\"color:var(--emerald-glow);\">[x] $1</span>");
+  answerHtml = answerHtml.replace(/\[ \]\s*(.+)/g, "<span style=\"color:var(--text-secondary);\">[ ] $1</span>");
+  answerHtml = answerHtml.replace(/\[x\]\s*(.+)/gi, "<span style=\"color:var(--emerald-glow);\">[x] $1</span>");
 
   // Inline formatting
-  html = html.replace(/`([^`]+)`/g, "<code>$1</code>");
-  html = html.replace(/\*\*([^\*]+)\*\*/g, "<strong>$1</strong>");
-  html = html.replace(/\*([^\*]+)\*/g, "<em>$1</em>");
-  html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, "<a href=\"$2\" target=\"_blank\" class=\"prose-a\">$1</a>");
+  answerHtml = answerHtml.replace(/`([^`]+)`/g, "<code>$1</code>");
+  answerHtml = answerHtml.replace(/\*\*([^\*]+)\*\*/g, "<strong>$1</strong>");
+  answerHtml = answerHtml.replace(/\*([^\*]+)\*/g, "<em>$1</em>");
+  answerHtml = answerHtml.replace(/\[([^\]]+)\]\(([^)]+)\)/g, "<a href=\"$2\" target=\"_blank\" class=\"prose-a\">$1</a>");
 
-  const rawParagraphs = html.split(/\n\n+/);
-  return rawParagraphs.map(p => {
+  const rawParagraphs = answerHtml.split(/\n\n+/);
+  const formattedAnswer = rawParagraphs.map(p => {
     const trimmed = p.trim();
     if (!trimmed) return "";
     if (trimmed.startsWith("<details") || trimmed.startsWith("<div") || trimmed.startsWith("<h") || trimmed.startsWith("<table")) {
@@ -650,6 +696,8 @@ function renderMarkdown(text) {
     }
     return `<p>${trimmed.replace(/\n/g, "<br>")}</p>`;
   }).filter(Boolean).join("");
+
+  return (thoughtHtml + cmdHtml + formattedAnswer).trim();
 }
 
 window.copyCode = function(btn) {
