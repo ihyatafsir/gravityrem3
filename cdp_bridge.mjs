@@ -176,55 +176,40 @@ const EXPRESSION_SCRAPE_ALL_MESSAGES = `(() => {
   const messages = [];
   
   for (const a of articles) {
-    const label = a.getAttribute('aria-label') || '';
-    const isUser = label.includes('User') || a.classList.contains('user-message');
-    const isAgent = label.includes('Agent') || label.includes('response') || !isUser;
+    const label = (a.getAttribute('aria-label') || '').toLowerCase();
+    const isUser = label.includes('user') || a.classList.contains('user-message');
+    
+    let text = '';
+    const markdown = a.querySelector('.rendered-markdown, .prose, .leading-relaxed.select-text');
+    if (markdown && markdown.innerText) {
+      text = markdown.innerText.trim();
+    } else {
+      const textNodes = Array.from(a.querySelectorAll('p, span[data-lexical-text="true"], pre'));
+      if (textNodes.length > 0) {
+        text = textNodes.map(t => t.innerText ? t.innerText.trim() : '').filter(Boolean).join('\n\n');
+      } else if (a.innerText) {
+        text = a.innerText.trim();
+      }
+    }
     
     if (isUser) {
-      let rawUserText = a.innerText ? a.innerText.trim() : '';
-      const lines = rawUserText.split('\\n');
-      if (lines.length > 1 && /^\\d{1,2}:\\d{2}\\s*(AM|PM)?$/i.test(lines[lines.length - 1].trim())) {
-        rawUserText = lines.slice(0, -1).join('\\n').trim();
-      }
-      if (rawUserText) {
-        messages.push({
-          from: 'user',
-          text: rawUserText,
-          timestamp: new Date().toISOString()
-        });
+      const lines = text.split('\n');
+      if (lines.length > 1 && /^\d{1,2}:\d{2}\s*(AM|PM)?$/i.test(lines[lines.length - 1].trim())) {
+        text = lines.slice(0, -1).join('\n').trim();
       }
     } else {
-      const textNodes = Array.from(a.querySelectorAll('.leading-relaxed.select-text, .rendered-markdown, .prose'));
-      const toolNodes = Array.from(a.querySelectorAll('div[class*=\"run-command\"], div[class*=\"group/run-command\"]'));
-      
-      let cleanText = textNodes.map(t => t.innerText.trim()).filter(Boolean).join('\\n\\n');
-      
-      if (cleanText.startsWith('Worked for ') || cleanText.startsWith('Thought for ')) {
-        const parts = cleanText.split('\\n\\n');
-        if (parts.length > 1) cleanText = parts.slice(1).join('\\n\\n');
+      if (text.startsWith('Worked for ') || text.startsWith('Thought for ')) {
+        const parts = text.split('\n\n');
+        if (parts.length > 1) text = parts.slice(1).join('\n\n');
       }
+    }
 
-      if (!cleanText && toolNodes.length > 0) {
-        const cmdPreview = toolNodes[0].innerText.trim().slice(0, 200);
-        cleanText = '> ⚡ Running Tool:\\n\`\`\`bash\\n' + cmdPreview + '\\n\`\`\`';
-      }
-
-      if (!cleanText && a.innerText) {
-        let fallback = a.innerText.trim();
-        if (fallback.startsWith('Thought for ') || fallback.startsWith('Worked for ')) {
-          const parts = fallback.split('\\n\\n');
-          if (parts.length > 1) fallback = parts.slice(1).join('\\n\\n');
-        }
-        cleanText = fallback;
-      }
-      
-      if (cleanText) {
-        messages.push({
-          from: 'agent',
-          text: cleanText,
-          timestamp: new Date().toISOString()
-        });
-      }
+    if (text && text.length > 0) {
+      messages.push({
+        from: isUser ? 'user' : 'agent',
+        text: text,
+        timestamp: new Date().toISOString()
+      });
     }
   }
   return { ok: true, messages };
@@ -672,6 +657,8 @@ class CdpBridge {
         if (actionsRes && this.onActionDetected) {
           this.onActionDetected(actionsRes);
         }
+
+        await this.syncAllMessages();
       } catch (e) {
       } finally {
         this.isHealthCheckInProgress = false;
