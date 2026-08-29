@@ -1665,3 +1665,39 @@ html, body {
   border-bottom-right-radius: 8px !important;
   width: 100% !important;
 }
+
+/* ==========================================================================
+   Frameless Clean User Message Text
+   ========================================================================== */
+.message-row.user {
+  align-self: flex-start !important;
+  align-items: flex-start !important;
+  max-width: 100% !important;
+  margin-top: 10px !important;
+  margin-bottom: 6px !important;
+}
+
+.message-row.user .message-meta {
+  justify-content: flex-start !important;
+  padding: 0 2px !important;
+  margin-bottom: 2px !important;
+}
+
+.message-row.user .message-avatar-tag {
+  color: var(--emerald-glow) !important;
+  font-weight: 700 !important;
+  font-size: 11px !important;
+}
+
+.message-row.user .message-bubble {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 2px 4px 4px 4px !important;
+  color: #f4f4f5 !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  line-height: 1.55 !important;
+  width: 100% !important;
+  border-radius: 0 !important;
+}
