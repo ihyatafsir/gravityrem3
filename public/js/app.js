@@ -389,59 +389,65 @@ async function syncChat() {
 }
 
 // ----------------------------------------------------------------------
-// Markdown & Rich Content Renderer (Tables, Diffs, Alerts, Code)
+// Markdown & Rich Content Renderer (GravityRemote2 High-Fidelity Flow)
 // ----------------------------------------------------------------------
 function renderMarkdown(text) {
-  if (!text) return '';
+  if (!text) return "";
 
   let html = text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
 
   // Collapsible Thought Blocks
-  html = html.replace(/^(Thought for [0-9smh\s]+|Worked for [0-9smh\s]+)([\s\S]*?)(?=\n\n|$)/im, (m, title, thought) => {
-    return `
-      <details class="thought-card" style="margin-bottom:8px;">
-        <summary style="cursor:pointer; font-weight:600; list-style:none; display:flex; justify-content:space-between; align-items:center;">
-          <span>${title.trim()}</span>
-          <span style="font-size:9.5px; opacity:0.7;">▾ Details</span>
-        </summary>
-        <div style="margin-top:6px; font-size:11.5px; opacity:0.9; line-height:1.45; white-space:pre-wrap;">${thought.trim()}</div>
-      </details>
-    `;
+  html = html.replace(/(?:^|\n)(Thought for [0-9smh\s]+|Worked for [0-9smh\s]+|Thinking Process)([\s\S]*?)(?=\n\n(?:[A-Z#*`\->]|Thought for|Worked for)|$)/gim, (m, title, thought) => {
+    return `\n<details class="thought-card" style="margin: 8px 0;">
+      <summary class="thought-summary">
+        <span class="thought-title">🧠 ${title.trim()}</span>
+        <span class="thought-chevron">▾ Details</span>
+      </summary>
+      <div class="thought-content">${thought.trim()}</div>
+    </details>\n`;
+  });
+
+  // Tool Execution Blocks
+  html = html.replace(/(?:^|\n)(?:> ⚡ (?:Running Tool|Ran command|Tool Execution):?\s*\n)([\s\S]*?)(?=\n\n|$)/gim, (m, body) => {
+    return `\n<div class="tool-execution-card">
+      <div class="tool-execution-header">⚡ Tool Execution</div>
+      <div class="tool-execution-body">${body.trim()}</div>
+    </div>\n`;
   });
 
   // Alerts
   html = html.replace(/^&gt;\s*\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\]\s*\n([\s\S]*?)(?=\n\n|$)/gim, (m, type, content) => {
     const alertType = type.toUpperCase();
     const colors = {
-      NOTE: { border: 'var(--cyan)', bg: 'rgba(6, 182, 212, 0.12)' },
-      TIP: { border: 'var(--emerald)', bg: 'rgba(16, 185, 129, 0.12)' },
-      IMPORTANT: { border: 'var(--purple)', bg: 'rgba(168, 85, 247, 0.15)' },
-      WARNING: { border: 'var(--amber)', bg: 'rgba(245, 158, 11, 0.15)' },
-      CAUTION: { border: 'var(--rose)', bg: 'rgba(244, 63, 94, 0.15)' }
+      NOTE: { border: "#0ea5e9", bg: "rgba(14, 165, 233, 0.12)" },
+      TIP: { border: "#10b981", bg: "rgba(16, 185, 129, 0.12)" },
+      IMPORTANT: { border: "#a855f7", bg: "rgba(168, 85, 247, 0.15)" },
+      WARNING: { border: "#f59e0b", bg: "rgba(245, 158, 11, 0.15)" },
+      CAUTION: { border: "#f43f5e", bg: "rgba(244, 63, 94, 0.15)" }
     };
     const c = colors[alertType] || colors.NOTE;
     return `
-      <div style="border-left: 3px solid ${c.border}; background: ${c.bg}; padding: 8px 12px; border-radius: 4px; margin: 8px 0; font-size: 12.5px;">
+      <div style="border-left: 3px solid ${c.border}; background: ${c.bg}; padding: 8px 12px; border-radius: 4px; margin: 8px 0; font-size: 13px;">
         <div style="font-weight: 700; color: #fff; margin-bottom: 2px; font-size: 11px; letter-spacing: 0.5px;">${alertType}</div>
-        <div>${content.trim().replace(/\n/g, '<br>')}</div>
+        <div>${content.trim().replace(/\n/g, "<br>")}</div>
       </div>
     `;
   });
 
   // Code Blocks & Diffs
   html = html.replace(/```([a-zA-Z0-9_-]*)\n([\s\S]*?)```/g, (match, lang, code) => {
-    const langLabel = lang || 'code';
+    const langLabel = lang || "code";
     let formattedCode = code.trim();
 
-    if (langLabel === 'diff') {
-      formattedCode = formattedCode.split('\n').map(line => {
-        if (line.startsWith('+')) return `<span class="diff-add">${line}</span>`;
-        if (line.startsWith('-')) return `<span class="diff-del">${line}</span>`;
+    if (langLabel === "diff") {
+      formattedCode = formattedCode.split("\n").map(line => {
+        if (line.startsWith("+")) return `<span class="diff-add">${line}</span>`;
+        if (line.startsWith("-")) return `<span class="diff-del">${line}</span>`;
         return line;
-      }).join('\n');
+      }).join("\n");
     }
 
     return `
@@ -455,44 +461,55 @@ function renderMarkdown(text) {
     `;
   });
 
+  // Headings
+  html = html.replace(/^### (.*$)/gim, "<h3 class=\"prose-h3\">$1</h3>");
+  html = html.replace(/^## (.*$)/gim, "<h2 class=\"prose-h2\">$1</h2>");
+  html = html.replace(/^# (.*$)/gim, "<h1 class=\"prose-h1\">$1</h1>");
+
   // Markdown Tables
   html = html.replace(/((?:\|[^\n]+\|\r?\n)+)/g, (tableMatch) => {
-    const rows = tableMatch.trim().split('\n').map(r => r.trim());
+    const rows = tableMatch.trim().split("\n").map(r => r.trim());
     if (rows.length < 2) return tableMatch;
 
-    const headerCells = rows[0].split('|').slice(1, -1).map(c => c.trim());
+    const headerCells = rows[0].split("|").slice(1, -1).map(c => c.trim());
     const isDivider = /^\|?[\s:-|-]+\|?$/.test(rows[1]);
     const dataRows = isDivider ? rows.slice(2) : rows.slice(1);
 
-    let tableHtml = '<div class="markdown-table-wrapper"><table class="markdown-table"><thead><tr>';
+    let tableHtml = "<div class=\"markdown-table-wrapper\"><table class=\"markdown-table\"><thead><tr>";
     headerCells.forEach(h => { tableHtml += `<th>${h}</th>`; });
-    tableHtml += '</tr></thead><tbody>';
+    tableHtml += "</tr></thead><tbody>";
 
     dataRows.forEach(row => {
-      const cells = row.split('|').slice(1, -1).map(c => c.trim());
+      const cells = row.split("|").slice(1, -1).map(c => c.trim());
       if (cells.length) {
-        tableHtml += '<tr>';
+        tableHtml += "<tr>";
         cells.forEach(c => { tableHtml += `<td>${c}</td>`; });
-        tableHtml += '</tr>';
+        tableHtml += "</tr>";
       }
     });
 
-    tableHtml += '</tbody></table></div>';
+    tableHtml += "</tbody></table></div>";
     return tableHtml;
   });
 
   // Checkboxes
-  html = html.replace(/\[ \]\s*(.+)/g, '<span style="color:var(--text-secondary);">[ ] $1</span>');
-  html = html.replace(/\[x\]\s*(.+)/gi, '<span style="color:var(--emerald-glow);">[x] $1</span>');
+  html = html.replace(/\[ \]\s*(.+)/g, "<span style=\"color:var(--text-secondary);\">[ ] $1</span>");
+  html = html.replace(/\[x\]\s*(.+)/gi, "<span style=\"color:var(--emerald-glow);\">[x] $1</span>");
 
   // Inline formatting
-  html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
-  html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
-  html = html.replace(/\*([^*]+)\*/g, '<em>$1</em>');
-  html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" style="color:var(--cyan-glow);text-decoration:underline;">$1</a>');
+  html = html.replace(/`([^`]+)`/g, "<code>$1</code>");
+  html = html.replace(/\*\*([^\*]+)\*\*/g, "<strong>$1</strong>");
+  html = html.replace(/\*([^\*]+)\*/g, "<em>$1</em>");
+  html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, "<a href=\"$2\" target=\"_blank\" class=\"prose-a\">$1</a>");
 
   const paragraphs = html.split(/\n\n+/);
-  return paragraphs.map(p => `<p>${p.replace(/\n/g, '<br>')}</p>`).join('');
+  return paragraphs.map(p => {
+    const trimmed = p.trim();
+    if (trimmed.startsWith("<div") || trimmed.startsWith("<details") || trimmed.startsWith("<h") || trimmed.startsWith("<ul") || trimmed.startsWith("<table")) {
+      return trimmed;
+    }
+    return `<p>${trimmed.replace(/\n/g, "<br>")}</p>`;
+  }).join("");
 }
 
 window.copyCode = function(btn) {
