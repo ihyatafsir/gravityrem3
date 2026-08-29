@@ -1,3 +1,18 @@
+import WebSocket from 'ws';
+import http from 'http';
+
+let ACTIVE_TARGET = process.env.CDP_TARGET || 'vm';
+let CDP_PORT = ACTIVE_TARGET === 'vm' ? 9222 : 9223;
+const DEBUG = process.env.DEBUG === 'true';
+
+function log(...args) {
+  console.log('[CDP-BRIDGE]', ...args);
+}
+
+function debugLog(...args) {
+  if (DEBUG) console.log('[CDP-DEBUG]', ...args);
+}
+
 const EXPRESSION_CHECK_LAST_MESSAGE = `(() => {
   const articles = Array.from(document.querySelectorAll('div[role="article"]'));
   if (!articles.length) return null;
