@@ -243,6 +243,23 @@ function handleWsEvent(msg) {
       }
       break;
 
+    case 'message_update':
+      if (msg.payload && typeof msg.payload.index === 'number') {
+        const idx = msg.payload.index;
+        state.messages[idx] = msg.payload.message;
+        const messageRows = elements.chatViewport.querySelectorAll('.message-row');
+        if (messageRows[idx]) {
+          const bubble = messageRows[idx].querySelector('.message-bubble');
+          if (bubble) {
+            bubble.innerHTML = renderMarkdown(msg.payload.message.text);
+          }
+        } else {
+          renderMessages();
+        }
+        scrollToBottom();
+      }
+      break;
+
     case 'agent_state':
       const wasBusy = state.agent.busy;
       state.agent = msg.payload;
@@ -520,6 +537,11 @@ function renderMarkdown(text) {
   // Collapsible Thought Indicator (Render as clean thought accordion)
   html = html.replace(/(?:^|\n)(Thought for [0-9smh\s]+|Worked for [0-9smh\s]+|Thinking Process)(?=\n\n|$)/gim, (m, title) => {
     return `\n<details class="thought-card">\n<summary class="thought-summary">\n<span class="thought-title">${title.trim()}</span>\n<span class="thought-chevron">▾ Details</span>\n</summary>\n<div class="thought-content">Reasoning & tool execution completed</div>\n</details>\n\n`;
+  });
+
+  // Format intermediate Chain-of-Thought / Analyzing text blocks into thought cards
+  html = html.replace(/(?:^|\n)((?:Analyzing the [^\n]+|Thinking Process:?|Thought Process:?|I've begun dissecting[^\n]*)\n[\s\S]*?)(?=(?:\n\n(?:Ran|Here|Step|1\.|###?|🔍|\$\$|[A-Z][a-z0-9\s,.]{20,}))|$)/gim, (m, thoughtBlock) => {
+    return `\n<details class="thought-card" open>\n<summary class="thought-summary">\n<span class="thought-title">Thinking Process</span>\n<span class="thought-chevron">▾ Details</span>\n</summary>\n<div class="thought-content">${thoughtBlock.trim()}</div>\n</details>\n\n`;
   });
 
   // Enclose entire Ran / Terminal Command execution block inside single Terminal Card
