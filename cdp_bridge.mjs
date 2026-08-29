@@ -697,31 +697,41 @@ class CdpBridge {
     if (!text) return { ok: false, error: 'empty_text' };
 
     try {
-      // 1. Locate editor coordinates
-      const coordRes = await this.evaluate(`(() => {
-        const editor = document.querySelector('div[contenteditable="true"][role="combobox"]') ||
-                       document.querySelector('div[contenteditable="true"][aria-label="Message input"]') ||
-                       document.querySelector('[data-lexical-editor="true"][contenteditable="true"]') ||
-                       document.querySelector('div[contenteditable="true"][role="textbox"]') ||
-                       document.querySelector('div[contenteditable="true"]');
-        if (!editor || editor.offsetParent === null) return null;
+      // 1. Focus editor and select node contents
+      const focusRes = await this.evaluate(`(() => {
+        let editor = document.querySelector('div[contenteditable="true"][role="combobox"]') ||
+                     document.querySelector('div[contenteditable="true"][aria-label="Message input"]') ||
+                     document.querySelector('[data-lexical-editor="true"][contenteditable="true"]') ||
+                     document.querySelector('div[contenteditable="true"][role="textbox"]') ||
+                     document.querySelector('div[contenteditable="true"]');
+        if (!editor) {
+          const cascadePanel = document.querySelector('#conversation, #chat, #cascade');
+          if (cascadePanel) {
+            const editables = [...cascadePanel.querySelectorAll('[contenteditable="true"]')].filter(el => el.offsetParent !== null);
+            editor = editables.at(-1);
+          }
+        }
+        if (!editor) return { ok: false, error: 'editor_not_found' };
         editor.focus();
-        const r = editor.getBoundingClientRect();
-        return { x: r.left + 20, y: r.top + 10 };
+        try {
+          const sel = window.getSelection();
+          if (sel) {
+            sel.removeAllRanges();
+            const range = document.createRange();
+            range.selectNodeContents(editor);
+            sel.addRange(range);
+          }
+        } catch (e) {}
+        return { ok: true };
       })()`);
 
-      if (!coordRes) {
-        return { ok: false, error: 'editor_not_found' };
+      if (!focusRes || focusRes.ok === false) {
+        return { ok: false, error: focusRes ? focusRes.error : 'focus_failed' };
       }
 
-      const { x, y } = coordRes;
-
-      // 2. Dispatch mouse click into editor to activate Lexical editor
-      await this.send('Input.dispatchMouseEvent', { type: 'mousePressed', x, y, button: 'left', clickCount: 1 });
-      await this.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x, y, button: 'left', clickCount: 1 });
       await new Promise(r => setTimeout(r, 60));
 
-      // 3. Clear existing text
+      // 2. Clear existing content with Ctrl+A -> Backspace
       await this.send('Input.dispatchKeyEvent', {
         type: 'keyDown', key: 'a', code: 'KeyA',
         modifiers: 2, windowsVirtualKeyCode: 65, nativeVirtualKeyCode: 65
@@ -738,25 +748,14 @@ class CdpBridge {
         type: 'keyUp', key: 'Backspace', code: 'Backspace',
         windowsVirtualKeyCode: 8, nativeVirtualKeyCode: 8
       });
+
       await new Promise(r => setTimeout(r, 60));
 
-      // 4. Native text insertion
+      // 3. Insert text via CDP native typing
       await this.send('Input.insertText', { text });
       await new Promise(r => setTimeout(r, 150));
 
-      // 5. Send Button Click & Enter Key
-      const btnCoord = await this.evaluate(`(() => {
-        const btn = document.querySelector('button[data-tooltip-id*="send"], button[aria-label="Send message"], button[aria-label*="Send" i]');
-        if (!btn) return null;
-        const r = btn.getBoundingClientRect();
-        return { x: r.left + r.width / 2, y: r.top + r.height / 2, disabled: btn.disabled };
-      })()`);
-
-      if (btnCoord && !btnCoord.disabled) {
-        await this.send('Input.dispatchMouseEvent', { type: 'mousePressed', x: btnCoord.x, y: btnCoord.y, button: 'left', clickCount: 1 });
-        await this.send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: btnCoord.x, y: btnCoord.y, button: 'left', clickCount: 1 });
-      }
-
+      // 4. Submit via Enter key and button click
       await this.send('Input.dispatchKeyEvent', {
         type: 'rawKeyDown', key: 'Enter', code: 'Enter',
         windowsVirtualKeyCode: 13, nativeVirtualKeyCode: 13
@@ -765,6 +764,11 @@ class CdpBridge {
         type: 'keyUp', key: 'Enter', code: 'Enter',
         windowsVirtualKeyCode: 13, nativeVirtualKeyCode: 13
       });
+
+      await this.evaluate(`(() => {
+        const btn = document.querySelector('button[data-tooltip-id*="send"], button[aria-label*="Send" i]');
+        if (btn && !btn.disabled) btn.click();
+      })()`);
 
       return { ok: true, method: 'native_cdp_injection', length: text.length };
     } catch (e) {
