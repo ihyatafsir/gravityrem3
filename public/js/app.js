@@ -243,6 +243,23 @@ function handleWsEvent(msg) {
       }
       break;
 
+    case 'message_update':
+      if (msg.payload && typeof msg.payload.index === 'number') {
+        const idx = msg.payload.index;
+        state.messages[idx] = msg.payload.message;
+        const messageRows = elements.chatViewport.querySelectorAll('.message-row');
+        if (messageRows[idx]) {
+          const bubble = messageRows[idx].querySelector('.message-bubble');
+          if (bubble) {
+            bubble.innerHTML = renderMarkdown(msg.payload.message.text);
+          }
+        } else {
+          renderMessages();
+        }
+        if (!state.userScrolledUp) scrollToBottom();
+      }
+      break;
+
     case 'agent_state':
       const wasBusy = state.agent.busy;
       state.agent = msg.payload;

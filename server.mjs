@@ -104,27 +104,40 @@ function mergeAgentMessage(existingText, incomingText) {
   if (!existingText) return incomingText || '';
   if (!incomingText) return existingText || '';
 
-  const thoughtMatch = existingText.match(/^(?:Thought for [0-9smh\s]+|Worked for [0-9smh\s]+|Thinking Process:?)/i);
-  const thoughtPart = thoughtMatch ? thoughtMatch[0].trim() : '';
+  // Extract thought badge
+  let thought = '';
+  const tMatch = existingText.match(/^(?:Thought for [0-9smh\s]+|Worked for [0-9smh\s]+|Thinking Process:?)/i) ||
+                 incomingText.match(/^(?:Thought for [0-9smh\s]+|Worked for [0-9smh\s]+|Thinking Process:?)/i);
+  if (tMatch) thought = tMatch[0].trim();
 
-  const cmdMatch = existingText.match(/((?:Ran|Run|Running|python3|bash|sh)\s*\n?[\s\S]*?)(?=\n\n(?:[A-Z\u{1F300}-\u{1F9FF}]|Step |Here |Check |I |The |All |Note:|###?|🔍|\$\$)|$)/iu);
-  const cmdPart = cmdMatch ? cmdMatch[1].trim() : '';
-
-  let cleanIncoming = incomingText.trim();
-
-  if (cmdPart && cleanIncoming.includes(cmdPart.slice(0, 30))) {
-    return cleanIncoming;
+  // Extract command block
+  let cmd = '';
+  const bashMatch = existingText.match(/```(?:bash|sh)?\n([\s\S]*?)```/i) || incomingText.match(/```(?:bash|sh)?\n([\s\S]*?)```/i);
+  if (bashMatch) {
+    cmd = '```bash\n' + bashMatch[1].trim() + '\n```';
+  } else {
+    const ranMatch = existingText.match(/(?:^|\n)((?:Ran|Run|Running|python3|bash|echo|cat|grep|curl)\s*\n?[\s\S]*?)(?=\n\n(?:[A-Z\u{1F300}-\u{1F9FF}]|Step |Here |Check |I |The |All |Note:|###?|🔍|\$\$)|$)/iu);
+    if (ranMatch) {
+      cmd = '```bash\n' + ranMatch[1].replace(/^(?:Ran|Run|Running)\s*\n?/i, '').trim() + '\n```';
+    }
   }
 
-  let result = '';
-  if (thoughtPart && !cleanIncoming.startsWith(thoughtPart)) {
-    result += thoughtPart + '\n\n';
+  // Extract pure answer text
+  let answer = incomingText.trim();
+  if (thought && answer.startsWith(thought)) {
+    answer = answer.slice(thought.length).trim();
   }
-  if (cmdPart) {
-    result += cmdPart + '\n\n';
+  if (cmd && answer.includes(cmd)) {
+    answer = answer.replace(cmd, '').trim();
   }
-  result += cleanIncoming;
-  return result.trim();
+  answer = answer.replace(/^(?:Ran|Run|Running)\s*\n[\s\S]*?(?=\n\n[A-Z\u{1F300}-\u{1F9FF}]|$)/iu, '').trim();
+
+  let parts = [];
+  if (thought) parts.push(thought);
+  if (cmd) parts.push(cmd);
+  if (answer) parts.push(answer);
+
+  return parts.join('\n\n').trim();
 }
 
 cdpBridge.onNewMessage = (msg) => {
