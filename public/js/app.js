@@ -376,11 +376,96 @@ function updateActionsUI(actions) {
 
   if (actionsDismissed) return;
 
+  const question = actions.question;
+  if (question && question.options && question.options.length > 0) {
+    elements.actionPromptCard.style.display = 'flex';
+    elements.actionPromptCard.style.flexDirection = 'column';
+    if (elements.actionTitle) {
+      elements.actionTitle.textContent = question.title || 'Interactive Choice Required:';
+    }
+
+    elements.actionButtonsContainer.innerHTML = '';
+    const optionsWrap = document.createElement('div');
+    optionsWrap.className = 'question-options-list';
+
+    question.options.forEach(opt => {
+      const optCard = document.createElement('div');
+      optCard.className = `question-opt-card ${opt.checked ? 'selected' : ''}`;
+      optCard.onclick = async () => {
+        haptic(20);
+        document.querySelectorAll('.question-opt-card').forEach(c => c.classList.remove('selected'));
+        optCard.classList.add('selected');
+        await fetch('/api/actions/question/select', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ index: opt.id })
+        });
+      };
+      optCard.innerHTML = `
+        <div class="question-opt-radio">${opt.checked ? '●' : '○'}</div>
+        <div class="question-opt-text">${opt.text}</div>
+      `;
+      optionsWrap.appendChild(optCard);
+    });
+    elements.actionButtonsContainer.appendChild(optionsWrap);
+
+    const btnRow = document.createElement('div');
+    btnRow.className = 'question-btn-row';
+
+    if (question.canSubmit) {
+      const submitBtn = document.createElement('button');
+      submitBtn.className = 'chip-btn highlight';
+      submitBtn.style.padding = '6px 14px';
+      submitBtn.style.fontWeight = '700';
+      submitBtn.textContent = 'Submit Choice ↵';
+      submitBtn.onclick = async () => {
+        haptic(35);
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Submitting...';
+        await fetch('/api/actions/question/submit', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ isSkip: false })
+        });
+        elements.actionPromptCard.style.display = 'none';
+        actionsDismissed = true;
+        setTimeout(() => { actionsDismissed = false; syncChat(); }, 2000);
+      };
+      btnRow.appendChild(submitBtn);
+    }
+
+    if (question.canSkip) {
+      const skipBtn = document.createElement('button');
+      skipBtn.className = 'chip-btn stop-btn';
+      skipBtn.style.padding = '6px 14px';
+      skipBtn.style.fontWeight = '700';
+      skipBtn.textContent = 'Skip';
+      skipBtn.onclick = async () => {
+        haptic(20);
+        skipBtn.disabled = true;
+        await fetch('/api/actions/question/submit', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ isSkip: true })
+        });
+        elements.actionPromptCard.style.display = 'none';
+        actionsDismissed = true;
+        setTimeout(() => { actionsDismissed = false; syncChat(); }, 2000);
+      };
+      btnRow.appendChild(skipBtn);
+    }
+
+    elements.actionButtonsContainer.appendChild(btnRow);
+    if (!state.userScrolledUp) scrollToBottom();
+    return;
+  }
+
   const hasPrompt = !!actions.permissionPrompt;
   const hasButtons = actions.pendingButtons && actions.pendingButtons.length > 0;
 
   if (hasPrompt || hasButtons) {
     elements.actionPromptCard.style.display = 'flex';
+    elements.actionPromptCard.style.flexDirection = 'column';
     if (elements.actionTitle) {
       elements.actionTitle.textContent = actions.permissionPrompt || 'Permission Required';
     }
@@ -389,8 +474,8 @@ function updateActionsUI(actions) {
     const btns = actions.pendingButtons || [];
     btns.forEach(b => {
       const btnEl = document.createElement('button');
-      const isPositive = ['allow', 'approve', 'proceed', 'run', 'review changes', 'accept'].some(k => b.text.toLowerCase().includes(k));
-      const isNegative = ['deny', 'cancel'].some(k => b.text.toLowerCase().includes(k));
+      const isPositive = ['allow', 'approve', 'proceed', 'run', 'review changes', 'accept', 'submit', 'yes'].some(k => b.text.toLowerCase().includes(k));
+      const isNegative = ['deny', 'cancel', 'no'].some(k => b.text.toLowerCase().includes(k));
       
       btnEl.className = 'chip-btn ' + (isPositive ? 'highlight' : (isNegative ? 'stop-btn' : ''));
       btnEl.style.padding = '5px 12px';

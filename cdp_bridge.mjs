@@ -93,24 +93,52 @@ const EXPRESSION_DETECT_ACTIONS = `(() => {
     isAutoAcceptOn = fullText.includes('Auto Accept: ON') || fullText.includes('ON,');
   }
 
-  const approvalKeywords = ['allow', 'approve', 'proceed', 'run', 'configure', 'deny', 'review changes', 'accept', 'retry'];
+  // 1. Interactive Question Prompt (ask_question modal)
+  const questionLabels = Array.from(document.querySelectorAll('label, div[role="radio"], div[role="option"]')).filter(l => l.offsetParent !== null);
+  let questionPrompt = null;
+  if (questionLabels.length > 0) {
+    const options = questionLabels.map((l, idx) => {
+      const isChecked = !!l.querySelector('input:checked') || l.getAttribute('aria-checked') === 'true';
+      return {
+        id: idx,
+        text: l.innerText ? l.innerText.trim().replace(/^\d+\s*\n?/, '') : '',
+        checked: isChecked
+      };
+    }).filter(opt => opt.text.length > 0);
+
+    const questionSubmitBtn = allButtons.find(b => (b.innerText || '').includes('Submit'));
+    const questionSkipBtn = allButtons.find(b => (b.innerText || '').includes('Skip'));
+
+    if (options.length > 0) {
+      questionPrompt = {
+        title: 'Interactive Choice Required:',
+        options: options,
+        canSubmit: !!questionSubmitBtn,
+        canSkip: !!questionSkipBtn
+      };
+    }
+  }
+
+  const approvalKeywords = ['allow', 'approve', 'proceed', 'run', 'configure', 'deny', 'review changes', 'accept', 'retry', 'submit', 'skip', 'yes', 'no'];
   const pendingButtons = allButtons.filter(b => {
     const t = (b.innerText || '').trim().toLowerCase();
-    return approvalKeywords.some(kw => t === kw || t.startsWith(kw + '\\n') || t.startsWith(kw + ' '));
+    return approvalKeywords.some(kw => t === kw || t.startsWith(kw + '\n') || t.startsWith(kw + ' '));
   }).map((b, idx) => ({
     id: idx,
-    text: b.innerText.trim().split('\\n')[0],
+    text: b.innerText.trim().split('\n')[0],
     aria: b.getAttribute('aria-label') || ''
   }));
 
   let permissionPrompt = null;
   const dialogEl = document.querySelector('div[role="dialog"], div[class*="notification-toast"], div[class*="monaco-dialog"]');
   if (dialogEl && dialogEl.offsetParent !== null) {
-    const txt = dialogEl.innerText ? dialogEl.innerText.trim().split('\\n')[0] : '';
+    const txt = dialogEl.innerText ? dialogEl.innerText.trim().split('\n')[0] : '';
     if (txt && txt.length < 140) permissionPrompt = txt;
   }
   
-  if (!permissionPrompt && pendingButtons.length > 0) {
+  if (!permissionPrompt && questionPrompt) {
+    permissionPrompt = questionPrompt.title;
+  } else if (!permissionPrompt && pendingButtons.length > 0) {
     permissionPrompt = 'Pending Action: ' + pendingButtons.map(b => b.text).join(' | ');
   }
 
@@ -120,7 +148,8 @@ const EXPRESSION_DETECT_ACTIONS = `(() => {
       enabled: isAutoAcceptOn
     },
     permissionPrompt: permissionPrompt,
-    pendingButtons: pendingButtons
+    pendingButtons: pendingButtons,
+    question: questionPrompt
   };
 })()`;
 
@@ -1182,6 +1211,42 @@ class CdpBridge {
     } catch(e) {
       return { ok: false, error: e.message };
     }
+  }
+
+  async selectQuestionOption(index) {
+    return await this.evaluate(`(() => {
+      const labels = Array.from(document.querySelectorAll('label, div[role="radio"], div[role="option"]')).filter(l => l.offsetParent !== null);
+      const target = labels[${index}];
+      if (target) {
+        target.click();
+        try {
+          target.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }));
+          const input = target.querySelector('input');
+          if (input) {
+            input.checked = true;
+            input.dispatchEvent(new Event('change', { bubbles: true }));
+          }
+        } catch(e) {}
+        return { ok: true };
+      }
+      return { ok: false, error: 'option_not_found' };
+    })()`);
+  }
+
+  async submitQuestion(isSkip = false) {
+    return await this.evaluate(`(() => {
+      const allButtons = Array.from(document.querySelectorAll('button, [role="button"]')).filter(b => b.offsetParent !== null);
+      const targetBtn = allButtons.find(b => {
+        const txt = (b.innerText || '').toLowerCase();
+        return isSkip ? txt.includes('skip') : txt.includes('submit');
+      });
+      if (targetBtn) {
+        targetBtn.click();
+        try { targetBtn.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window })); } catch(e) {}
+        return { ok: true };
+      }
+      return { ok: false, error: 'button_not_found' };
+    })()`);
   }
 }
 

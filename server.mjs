@@ -240,6 +240,21 @@ app.post('/api/target', async (req, res) => {
 });
 
 // 1. Permission / Action Execution
+
+// 4.2 Interactive Question Handlers
+app.post('/api/actions/question/select', async (req, res) => {
+  const { index } = req.body;
+  if (typeof index !== 'number') return res.status(400).json({ ok: false, error: 'no_index' });
+  const result = await cdpBridge.selectQuestionOption(index);
+  res.json(result);
+});
+
+app.post('/api/actions/question/submit', async (req, res) => {
+  const { isSkip } = req.body || {};
+  const result = await cdpBridge.submitQuestion(!!isSkip);
+  res.json(result);
+});
+
 app.post('/api/actions/click', async (req, res) => {
   const { text } = req.body;
   if (!text) return res.status(400).json({ ok: false, error: 'no_text' });

@@ -2228,3 +2228,50 @@ pre, pre code, .terminal-body, .terminal-body code, .code-container pre, .code-c
   color: #7dd3fc !important;
   border: 1px solid rgba(56, 189, 248, 0.25) !important;
 }
+
+/* ==========================================================================
+   Interactive Question Card Options Styling
+   ========================================================================== */
+.question-options-list {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 6px !important;
+  margin: 8px 0 !important;
+  width: 100% !important;
+}
+
+.question-opt-card {
+  display: flex !important;
+  align-items: flex-start !important;
+  gap: 8px !important;
+  padding: 8px 12px !important;
+  background: rgba(255, 255, 255, 0.04) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 6px !important;
+  cursor: pointer !important;
+  transition: all 0.15s ease !important;
+}
+
+.question-opt-card:active, .question-opt-card.selected {
+  background: rgba(52, 211, 153, 0.1) !important;
+  border-color: rgba(52, 211, 153, 0.4) !important;
+}
+
+.question-opt-radio {
+  color: #34d399 !important;
+  font-size: 13px !important;
+  line-height: 1.2 !important;
+}
+
+.question-opt-text {
+  font-size: 12px !important;
+  color: #e2e8f0 !important;
+  line-height: 1.4 !important;
+}
+
+.question-btn-row {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  margin-top: 8px !important;
+}
