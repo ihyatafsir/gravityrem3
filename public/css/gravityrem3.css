@@ -1875,3 +1875,33 @@ pre, pre code, .terminal-body, .terminal-body code, .code-container pre, .code-c
   background: transparent !important;
   color: inherit !important;
 }
+
+/* ==========================================================================
+   Left-Aligned Thinking Status Pill & Cards
+   ========================================================================== */
+#agent-working-banner {
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  gap: 7px !important;
+  background: rgba(15, 23, 42, 0.85) !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  border-radius: 20px !important;
+  padding: 4px 11px !important;
+  margin: 6px 0 10px 0 !important;
+  font-size: 11px !important;
+  font-weight: 500 !important;
+  color: #94a3b8 !important;
+  width: fit-content !important;
+  align-self: flex-start !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3) !important;
+}
+
+.thought-card {
+  align-self: flex-start !important;
+  margin-left: 0 !important;
+  margin-right: auto !important;
+  text-align: left !important;
+}
