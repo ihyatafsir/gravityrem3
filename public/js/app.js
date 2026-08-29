@@ -517,49 +517,14 @@ function renderMarkdown(text) {
     return `<span class="math-inline">${clean}</span>`;
   });
 
-  // Collapsible Thought Blocks (No Emoji, Minimalist Neutral Accordion)
-  html = html.replace(/(?:^|\n)(Thought for [0-9smh\s]+|Worked for [0-9smh\s]+|Thinking Process)([\s\S]*)/gim, (m, title, rest) => {
-    const splitMatch = rest.match(/^(.*?)(?:\n\n([A-Z][a-z0-9\s,.\x27"-]{15,}[\s\S]*))?$/s);
-    let thoughtBody = (splitMatch && splitMatch[1] ? splitMatch[1] : rest).trim();
-    const prose = splitMatch && splitMatch[2] ? splitMatch[2].trim() : "";
-
-    let res = `\n<details class="thought-card">\n<summary class="thought-summary">\n<span class="thought-title">${title.trim()}</span>\n<span class="thought-chevron">▾ Details</span>\n</summary>\n<div class="thought-content">${thoughtBody || "Thinking completed"}</div>\n</details>\n\n`;
-    if (prose) res += prose;
-    return res;
+  // Collapsible Thought Indicator (Render as clean thought accordion)
+  html = html.replace(/(?:^|\n)(Thought for [0-9smh\s]+|Worked for [0-9smh\s]+|Thinking Process)(?=\n\n|$)/gim, (m, title) => {
+    return `\n<details class="thought-card">\n<summary class="thought-summary">\n<span class="thought-title">${title.trim()}</span>\n<span class="thought-chevron">▾ Details</span>\n</summary>\n<div class="thought-content">Reasoning & tool execution completed</div>\n</details>\n\n`;
   });
 
-  // Separate Ran / Command Blocks from subsequent prose/reports
-  html = html.replace(/(?:^|\n)(Ran\s*\n[\s\S]*)/gim, (m, terminalBlock) => {
-    const lines = terminalBlock.split("\n");
-    let cmdLines = [];
-    let proseLines = [];
-    let isProse = false;
-
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i];
-      if (!isProse) {
-        if (i > 1 && (line.startsWith("🔍") || line.startsWith("#") || line.startsWith("Component") || line.startsWith("Everything") || line.startsWith("Here ") || line.startsWith("Step ") || line.startsWith("I ") || line.startsWith("The ") || line.startsWith("All ") || line.startsWith("Checked "))) {
-          isProse = true;
-          proseLines.push(line);
-        } else {
-          cmdLines.push(line);
-        }
-      } else {
-        proseLines.push(line);
-      }
-    }
-
-    const cmdText = cmdLines.join("\n").trim();
-    const proseText = proseLines.join("\n").trim();
-
-    let res = "";
-    if (cmdText) {
-      res += `\n<div class="terminal-card">\n<pre class="terminal-body"><code>${cmdText}</code></pre>\n</div>\n\n`;
-    }
-    if (proseText) {
-      res += proseText;
-    }
-    return res;
+  // Ran / Terminal Command Output
+  html = html.replace(/(?:^|\n)(Ran\s*\n[\s\S]*?)(?=(?:\n\n(?:🔍|###?|Step|Here|1\.|Component|Everything|All|Checked|[A-Z][a-zA-Z0-9\s,.'"-]{15,}))|$)/gim, (m, cmdBlock) => {
+    return `\n<div class="terminal-card">\n<pre class="terminal-body"><code>${cmdBlock.trim()}</code></pre>\n</div>\n\n`;
   });
 
   // Tab-separated tables

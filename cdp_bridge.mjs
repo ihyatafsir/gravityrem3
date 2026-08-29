@@ -212,23 +212,30 @@ const EXPRESSION_SCRAPE_ALL_MESSAGES = `(() => {
       // Clean temporary animation text
       text = text.replace(/Waiting for user input[\.]*/gi, '').trim();
 
-      // Extract Thinking / Worked for Block
+      // Extract Thought / Worked for button
       const thoughtBtn = a.querySelector('button[class*="tabular-nums"], [class*="thought"], [class*="thinking"], div[class*="tabular-nums"]');
       const thoughtText = thoughtBtn ? thoughtBtn.innerText.trim() : '';
-      if (thoughtText && !text.toLowerCase().includes(thoughtText.toLowerCase())) {
-        text = thoughtText + '\n\n' + text;
+
+      // Extract Tool Blocks
+      const toolBlocks = Array.from(a.querySelectorAll('div[class*="group/run-command"], div[class*="run-command"], div[class*="terminal"]'));
+      let toolText = '';
+      if (toolBlocks.length > 0) {
+        toolText = toolBlocks.map(tb => {
+          const cmd = tb.innerText.trim();
+          return cmd ? "\nRan\n" + cmd + "\n" : "";
+        }).filter(Boolean).join("\n");
       }
 
-      // Tool Blocks & Commands
-      const toolBlocks = Array.from(a.querySelectorAll('div[class*="group/run-command"], div[class*="run-command"], div[class*="terminal"]'));
-      if (toolBlocks.length > 0) {
-        const toolText = toolBlocks.map(tb => {
-          const cmd = tb.innerText.trim();
-          return cmd ? "\n\`\`\`bash\n" + cmd + "\n\`\`\`\n" : "";
-        }).filter(Boolean).join("\n");
-        if (toolText && !text.includes(toolText.slice(0, 30))) {
-          text = text ? (toolText + "\n\n" + text) : toolText;
-        }
+      // Prepend thought and tool blocks
+      let prefix = '';
+      if (thoughtText && !text.toLowerCase().includes(thoughtText.toLowerCase())) {
+        prefix += thoughtText + '\n\n';
+      }
+      if (toolText && !text.includes(toolText.slice(0, 30))) {
+        prefix += toolText + '\n\n';
+      }
+      if (prefix) {
+        text = prefix + text;
       }
     }
 

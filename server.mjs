@@ -103,17 +103,23 @@ setInterval(() => {
 function mergeMessageText(existingText, incomingText) {
   if (!existingText || !incomingText) return incomingText || existingText || '';
 
-  const hasExistingCmd = /(?:^|\n)(?:Ran\s*\n|```bash[\s\S]*?```)/i.test(existingText);
-  if (hasExistingCmd) {
-    const cmdMatch = existingText.match(/((?:Ran\s*\n|```bash[\s\S]*?```)[\s\S]*?)(?=\n\n(?:[A-Z]|Worked for|Thought for)|$)/i);
-    if (cmdMatch) {
-      const cmdPart = cmdMatch[1].trim();
-      if (!incomingText.includes(cmdPart.slice(0, 30))) {
-        return cmdPart + '\n\n' + incomingText.trim();
-      }
-    }
+  const existingThoughtMatch = existingText.match(/(?:^|\n)(Thought for [0-9smh\s]+|Worked for [0-9smh\s]+|Thinking Process)/i);
+  const existingThought = existingThoughtMatch ? existingThoughtMatch[1].trim() : '';
+
+  const existingCmdMatch = existingText.match(/((?:Ran\s*\n|```bash[\s\S]*?```)[\s\S]*?)(?=\n\n(?:[A-Z]|Worked for|Thought for|Step|Here|1\.|🔍)|$)/i);
+  const existingCmd = existingCmdMatch ? existingCmdMatch[1].trim() : '';
+
+  let merged = incomingText.trim();
+
+  if (existingCmd && !merged.includes(existingCmd.slice(0, 30))) {
+    merged = existingCmd + '\n\n' + merged;
   }
-  return incomingText.trim();
+
+  if (existingThought && !merged.toLowerCase().includes(existingThought.toLowerCase())) {
+    merged = existingThought + '\n\n' + merged;
+  }
+
+  return merged;
 }
 
 cdpBridge.onNewMessage = (msg) => {
