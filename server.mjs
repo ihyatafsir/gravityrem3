@@ -18,7 +18,16 @@ const UPLOAD_DIR = '/tmp/ag_uploads';
 await mkdir(DATA_DIR, { recursive: true });
 await mkdir(UPLOAD_DIR, { recursive: true });
 
-const upload = multer({ dest: UPLOAD_DIR });
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, UPLOAD_DIR);
+  },
+  filename: (req, file, cb) => {
+    const safeName = Date.now() + '_' + file.originalname.replace(/[^a-zA-Z0-9_.-]/g, '_');
+    cb(null, safeName);
+  }
+});
+const upload = multer({ storage });
 
 const app = express();
 const server = createServer(app);
@@ -650,7 +659,16 @@ app.get('/api/history', async (req, res) => {
 
 app.post('/api/upload', upload.single('file'), (req, res) => {
   if (!req.file) return res.status(400).json({ ok: false, error: 'no_file' });
-  res.json({ ok: true, file: { originalName: req.file.originalname, path: req.file.path, size: req.file.size } });
+  const isImage = req.file.mimetype.startsWith('image/') || /\.(jpg|jpeg|png|webp|gif|svg)$/i.test(req.file.originalname);
+  res.json({
+    ok: true,
+    file: {
+      originalName: req.file.originalname,
+      path: req.file.path,
+      size: req.file.size,
+      isImage: isImage
+    }
+  });
 });
 
 // ----------------------------------------------------------------------

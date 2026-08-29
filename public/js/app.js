@@ -1368,10 +1368,15 @@ function closeDrawer() {
 // ----------------------------------------------------------------------
 async function fetchLiveModels() {
   try {
+    const saved = localStorage.getItem('ag_active_model');
+    if (saved) {
+      state.activeModel = saved;
+      if (elements.modelLabel) elements.modelLabel.textContent = formatShortModelName(saved);
+    }
     const res = await fetch('/api/models');
     const data = await res.json();
     if (data.ok) {
-      if (data.current) {
+      if (data.current && !saved) {
         state.activeModel = data.current;
         if (elements.modelLabel) elements.modelLabel.textContent = formatShortModelName(data.current);
       }
@@ -1380,14 +1385,32 @@ async function fetchLiveModels() {
   } catch (e) {}
 }
 
+function normalizeModelStr(str) {
+  return (str || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
 function generateModelFamiliesHtml() {
   let html = "";
+  const normActive = normalizeModelStr(state.activeModel);
+
   MODEL_FAMILIES.forEach(fam => {
-    const isFamilyActive = fam.tiers.some(t => state.activeModel.toLowerCase().includes(t.fullName.toLowerCase()) || t.fullName.toLowerCase().includes(state.activeModel.toLowerCase()));
+    const isFamilyActive = fam.tiers.some(t => {
+      const normTier = normalizeModelStr(t.fullName);
+      return normActive === normTier || (normActive.startsWith(normalizeModelStr(fam.name)) && normActive.includes(normalizeModelStr(t.name)));
+    });
 
     let tiersHtml = "";
     fam.tiers.forEach(tier => {
-      const isTierActive = state.activeModel.toLowerCase().includes(tier.fullName.toLowerCase()) || tier.fullName.toLowerCase().includes(state.activeModel.toLowerCase());
+      const normTier = normalizeModelStr(tier.fullName);
+      let isTierActive = normActive === normTier;
+      if (!isTierActive && isFamilyActive && normActive.includes(normalizeModelStr(tier.name))) {
+        isTierActive = true;
+      }
+      // If none explicitly matched and this is the active family default to High
+      if (!isTierActive && isFamilyActive && !fam.tiers.some(t => normActive.includes(normalizeModelStr(t.name))) && tier.name === "High") {
+        isTierActive = true;
+      }
+
       const tierClass = tier.name.toLowerCase().includes("high") ? "tier-high" : (tier.name.toLowerCase().includes("low") ? "tier-low" : "tier-medium");
 
       tiersHtml += `
@@ -1437,6 +1460,7 @@ window.selectModelTier = async function(modelFullName) {
   haptic(30);
   if (elements.modelModal) elements.modelModal.style.display = "none";
   state.activeModel = modelFullName;
+  localStorage.setItem('ag_active_model', modelFullName);
   if (elements.modelLabel) elements.modelLabel.textContent = formatShortModelName(modelFullName);
 
   if (state.drawerActiveTab === "models") {
@@ -1600,11 +1624,17 @@ function initEventListeners() {
       try {
         const res = await fetch('/api/upload', { method: 'POST', body: formData });
         const data = await res.json();
-        if (data.ok) {
-          elements.promptInput.value += ` [Attached: ${data.file.path}] `;
+        if (data.ok && data.file) {
+          const tag = data.file.isImage ? `[Uploaded Image/Screenshot: ${data.file.path}]` : `[Attached File: ${data.file.path}]`;
+          elements.promptInput.value = (elements.promptInput.value ? elements.promptInput.value + "\n\n" : "") + tag + "\n";
           elements.promptInput.focus();
+          haptic(25);
         }
-      } catch (e) {}
+      } catch (e) {
+        console.error('File upload failed:', e);
+      } finally {
+        elements.fileInput.value = '';
+      }
     });
   }
 
