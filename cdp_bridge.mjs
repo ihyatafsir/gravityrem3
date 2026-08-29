@@ -2,8 +2,6 @@ const EXPRESSION_CHECK_LAST_MESSAGE = `(() => {
   const articles = Array.from(document.querySelectorAll('div[role="article"]'));
   if (!articles.length) return null;
   const a = articles[articles.length - 1];
-  const label = (a.getAttribute('aria-label') || '').toLowerCase();
-  const isUser = label.includes('user') || a.classList.contains('user-message');
 
   let thought = '';
   const thoughtBtn = a.querySelector('button[class*="tabular-nums"]');
@@ -12,20 +10,27 @@ const EXPRESSION_CHECK_LAST_MESSAGE = `(() => {
   }
 
   let cmd = '';
-  const toolNodes = Array.from(a.querySelectorAll('div[class*="run-command"], div[class*="group/run-command"], div[class*="terminal"]'));
+  const toolNodes = Array.from(a.querySelectorAll('div[class*="run-command"], div[class*="group/run-command"], div[class*="terminal"], div[class*="tool-invocation"]'));
   if (toolNodes.length > 0) {
-    const toolText = toolNodes.map(tn => tn.innerText.trim()).filter(Boolean).join('\\n');
+    const toolText = toolNodes.map(tn => tn.innerText.trim()).filter(Boolean).join('\n');
     if (toolText) {
-      cmd = String.fromCharCode(96,96,96) + "bash\\n" + toolText + "\\n" + String.fromCharCode(96,96,96);
+      cmd = String.fromCharCode(96,96,96) + "bash\n" + toolText + "\n" + String.fromCharCode(96,96,96);
     }
   }
 
   let answer = '';
-  const textNodes = Array.from(a.querySelectorAll('.rendered-markdown, .prose, .leading-relaxed.select-text')).filter(el => !el.closest('div[class*="run-command"], div[class*="group/run-command"], div[class*="terminal"]'));
+  const textNodes = Array.from(a.querySelectorAll('.rendered-markdown, .prose, .leading-relaxed.select-text'))
+    .filter(el => !el.closest('div[class*="run-command"], div[class*="group/run-command"], div[class*="terminal"], div[class*="tool-invocation"]'));
+
   if (textNodes.length > 0) {
-    answer = textNodes.map(t => t.innerText.trim()).filter(Boolean).join('\\n\\n');
+    answer = textNodes.map(t => t.innerText.trim()).filter(Boolean).join('\n\n');
   } else if (!cmd && a.innerText) {
-    answer = a.innerText.trim();
+    let rawA = a.innerText.trim();
+    if (/^(?:Ran|Run|Running|python3|bash|sh|cat|grep|curl|echo|~\/|\/home\/|\$|>>>)\b/i.test(rawA)) {
+      cmd = String.fromCharCode(96,96,96) + "bash\n" + rawA.replace(/^(?:Ran|Run|Running)\s*\n?/i, '') + "\n" + String.fromCharCode(96,96,96);
+    } else {
+      answer = rawA;
+    }
   }
 
   if (thought && answer.startsWith(thought)) {
@@ -37,31 +42,15 @@ const EXPRESSION_CHECK_LAST_MESSAGE = `(() => {
   if (cmd) parts.push(cmd);
   if (answer) parts.push(answer);
 
+  const label = (a.getAttribute('aria-label') || '').toLowerCase();
+  const isUser = label.includes('user') || a.classList.contains('user-message');
+
   return {
     from: isUser ? 'user' : 'agent',
-    text: parts.join('\\n\\n').trim(),
+    text: parts.join('\n\n').trim(),
     timestamp: new Date().toISOString()
   };
 })()`;
-
-import WebSocket from 'ws';
-import http from 'http';
-
-let ACTIVE_TARGET = process.env.CDP_TARGET || 'vm'; // Default to 'vm' (9222) for local Antigravity IDE
-let CDP_PORT = ACTIVE_TARGET === 'vm' ? 9222 : 9223;
-const DEBUG = process.env.DEBUG === 'true';
-
-function log(...args) {
-  console.log('[CDP-BRIDGE]', ...args);
-}
-
-function debugLog(...args) {
-  if (DEBUG) console.log('[CDP-DEBUG]', ...args);
-}
-
-// ----------------------------------------------------------------------
-// CDP Client-Side DOM Expressions
-// ----------------------------------------------------------------------
 
 const EXPRESSION_CHECK_BUSY = `(() => {
   const cancelBtn = document.querySelector('[data-tooltip-id="input-send-button-cancel-tooltip"], button[aria-label="Stop"], button.stop-button, svg.lucide-square');
@@ -398,34 +387,52 @@ const EXPRESSION_SETUP_OBSERVER = `(() => {
         const articles = document.querySelectorAll('div[role="article"]');
         if (!articles.length) return;
         
-        const lastArticle = articles[articles.length - 1];
-        const label = lastArticle.getAttribute('aria-label') || '';
-        const isAgent = label.includes('Agent') || label.includes('response');
-        
-        const toolNode = lastArticle.querySelector('div[class*="run-command"], div[class*="group/run-command"], div[class*="terminal"]');
-        const textNode = lastArticle.querySelector('.rendered-markdown, .prose, .leading-relaxed.select-text');
-        
-        let text = '';
-        if (toolNode && !textNode) {
-          const cmdText = toolNode.innerText ? toolNode.innerText.trim() : '';
-          text = String.fromCharCode(96,96,96) + "bash\n" + cmdText + "\n" + String.fromCharCode(96,96,96);
-        } else if (textNode) {
-          text = textNode.innerText ? textNode.innerText.trim() : '';
-        } else if (lastArticle) {
-          let rawA = lastArticle.innerText ? lastArticle.innerText.trim() : '';
-          if (/^(?:Ran|Run|Running|python3|bash|sh|cat|grep|curl|echo|~\/|\/home\/|\$|>>>)\b/i.test(rawA)) {
-            text = String.fromCharCode(96,96,96) + "bash\n" + rawA.replace(/^(?:Ran|Run|Running)\s*\n?/i, "") + "\n" + String.fromCharCode(96,96,96);
-          } else {
-            text = rawA;
+        const a = articles[articles.length - 1];
+        const label = (a.getAttribute('aria-label') || '').toLowerCase();
+        const isAgent = label.includes('Agent') || label.includes('response') || !label.includes('user');
+
+        let thought = '';
+        const thoughtBtn = a.querySelector('button[class*="tabular-nums"]');
+        if (thoughtBtn && thoughtBtn.innerText) {
+          thought = thoughtBtn.innerText.trim();
+        }
+
+        let cmd = '';
+        const toolNodes = Array.from(a.querySelectorAll('div[class*="run-command"], div[class*="group/run-command"], div[class*="terminal"], div[class*="tool-invocation"]'));
+        if (toolNodes.length > 0) {
+          const toolText = toolNodes.map(tn => tn.innerText.trim()).filter(Boolean).join('\n');
+          if (toolText) {
+            cmd = String.fromCharCode(96,96,96) + "bash\n" + toolText + "\n" + String.fromCharCode(96,96,96);
           }
         }
-        
-        if (text.startsWith('Worked for ') || text.startsWith('Thought for ')) {
-          const parts = text.split('\\n\\n');
-          if (parts.length > 1) text = parts.slice(1).join('\\n\\n');
+
+        let answer = '';
+        const textNodes = Array.from(a.querySelectorAll('.rendered-markdown, .prose, .leading-relaxed.select-text'))
+          .filter(el => !el.closest('div[class*="run-command"], div[class*="group/run-command"], div[class*="terminal"], div[class*="tool-invocation"]'));
+
+        if (textNodes.length > 0) {
+          answer = textNodes.map(t => t.innerText.trim()).filter(Boolean).join('\n\n');
+        } else if (!cmd && a.innerText) {
+          let rawA = a.innerText.trim();
+          if (/^(?:Ran|Run|Running|python3|bash|sh|cat|grep|curl|echo|~\/|\/home\/|\$|>>>)\b/i.test(rawA)) {
+            cmd = String.fromCharCode(96,96,96) + "bash\n" + rawA.replace(/^(?:Ran|Run|Running)\s*\n?/i, '') + "\n" + String.fromCharCode(96,96,96);
+          } else {
+            answer = rawA;
+          }
         }
+
+        if (thought && answer.startsWith(thought)) {
+          answer = answer.slice(thought.length).trim();
+        }
+
+        let parts = [];
+        if (thought) parts.push(thought);
+        if (cmd) parts.push(cmd);
+        if (answer) parts.push(answer);
+
+        const text = parts.join('\n\n').trim();
         
-        if (text && text !== window._agLastEmittedText && text.length > 3) {
+        if (text && text !== window._agLastEmittedText && text.length > 2) {
           window._agLastEmittedText = text;
           console.log('__AG_MSG__:' + JSON.stringify({
             from: isAgent ? 'agent' : 'user',
@@ -434,7 +441,7 @@ const EXPRESSION_SETUP_OBSERVER = `(() => {
           }));
         }
       } catch (err) {}
-    }, 150);
+    }, 120);
   });
 
   window._agMutationObserver.observe(container, {

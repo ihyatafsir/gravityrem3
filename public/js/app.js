@@ -573,10 +573,9 @@ async function syncChat() {
 // ----------------------------------------------------------------------
 function renderMarkdown(text) {
   if (!text) return "";
-
   let raw = text.trim();
 
-  // 1. Layer 1: Thought Badge & Collapsible Closed Box (Matches Antigravity IDE)
+  // 1. Layer 1: Thought Badge
   let thoughtHtml = "";
   const thoughtHeaderMatch = raw.match(/^(Thought for [0-9smh\s]+|Worked for [0-9smh\s]+|Thinking Process:?)/i);
   if (thoughtHeaderMatch) {
@@ -596,7 +595,7 @@ function renderMarkdown(text) {
     thoughtHtml = `\n<details class="thought-card">\n<summary class="thought-summary">\n<span class="thought-title"><svg class="thought-icon" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a8 8 0 0 0-8 8c0 3 2 5.5 4 7v2a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2v-2c2-1.5 4-4 4-7a8 8 0 0 0-8-8z"/><path d="M9 21h6"/></svg>${title}</span>\n<span class="thought-chevron">▾</span>\n</summary>\n<div class="thought-content">${thoughtBody.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")}</div>\n</details>\n\n`;
   }
 
-  // 2. Layer 2: Extract explicit ```code blocks``` first
+  // 2. Layer 2: Explicit Code Blocks
   const codeBlocks = [];
   raw = raw.replace(/```([a-zA-Z0-9_-]*)\n([\s\S]*?)```/g, (match, lang, code) => {
     const placeholder = `__CODE_BLOCK_${codeBlocks.length}__`;
@@ -605,14 +604,6 @@ function renderMarkdown(text) {
       .replace(/&/g, "&amp;")
       .replace(/</g, "&lt;")
       .replace(/>/g, "&gt;");
-
-    if (langLabel === "diff") {
-      formattedCode = formattedCode.split("\n").map(line => {
-        if (line.startsWith("+")) return `<span class="diff-add">${line}</span>`;
-        if (line.startsWith("-")) return `<span class="diff-del">${line}</span>`;
-        return line;
-      }).join("\n");
-    }
 
     codeBlocks.push(`
       <div class="code-container">
@@ -626,7 +617,7 @@ function renderMarkdown(text) {
     return placeholder;
   });
 
-  // 3. Layer 3: Extract LaTeX Math ($$...$$ and $...$) BEFORE any terminal heuristics
+  // 3. Layer 3: LaTeX Math
   const mathBlocks = [];
   raw = raw.replace(/\$\$([\s\S]*?)\$\$/g, (m, math) => {
     const placeholder = `__MATH_BLOCK_${mathBlocks.length}__`;
@@ -661,8 +652,6 @@ function renderMarkdown(text) {
       .replace(/\\times/g, "×")
       .replace(/\\div/g, "÷")
       .replace(/\\approx/g, "≈")
-      .replace(/\\le(q)?/g, "≤")
-      .replace(/\\ge(q)?/g, "≥")
       .replace(/\^2/g, "²")
       .replace(/\^3/g, "³")
       .replace(/\^([0-9]+)/g, "<sup>$1</sup>")
@@ -671,56 +660,26 @@ function renderMarkdown(text) {
     return placeholder;
   });
 
-  // 4. Layer 4: Leading terminal command boxing (Strict shell prompt or Ran/Run indicator)
-  let initialCmdHtml = "";
-  const leadingCmdMatch = raw.match(/^(?:(?:Ran|Run|Running)\s*\n?|(?:(?:~[a-zA-Z0-9_\/.-]+|\/home\/[a-zA-Z0-9_\/.-]+)\s*\$\s+|(?:python3|bash|sh|cat|grep|curl|echo)\s+))([\s\S]*?)(?=(?:\n\n(?:###?|Step |Here |Check |I |The |All |Note:|📜|🛠️|🌟|🩺|🔍|\$\$|[A-Z\u{1F300}-\u{1F9FF}]))|$)/u);
-
-  if (leadingCmdMatch) {
-    const fullCmdText = leadingCmdMatch[0].trim().replace(/^(?:Ran|Run|Running)\s*\n?/i, "");
-    initialCmdHtml = `\n<div class="terminal-card"><pre class="terminal-body"><code>${fullCmdText.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")}</code></pre></div>\n`;
-    raw = raw.slice(leadingCmdMatch[0].length).trim();
-  }
-
-  // 5. Layer 5: Catch remaining un-fenced shell dumps with strict prompt check
-  raw = raw.replace(/((?:(?:~[a-zA-Z0-9_\/.-]+|\/home\/[a-zA-Z0-9_\/.-]+)\s*\$\s+[\s\S]*?)(?=(?:\n\n[A-Z\u{1F300}-\u{1F9FF}]|###?|Step |Here |Check |I |The |All |Note:|\$\$)|$))/giu, (match) => {
-    const clean = match.trim()
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;");
-    return `\n<div class="terminal-card"><pre class="terminal-body"><code>${clean}</code></pre></div>\n`;
+  // 4. Layer 4: Terminal Command Lines (Always placed in code blocks directly)
+  const termBlocks = [];
+  raw = raw.replace(/((?:(?:(?:Ran|Run|Running)\s*\n?|(?:~[a-zA-Z0-9_\/.-]+|\/home\/[a-zA-Z0-9_\/.-]+)\s*\$\s+|(?:python3|bash|sh|cat|grep|curl|echo|sudo|git|npm|node)\s+)[^\n]+(?:\n(?:(?:~[a-zA-Z0-9_\/.-]+|\/home\/[a-zA-Z0-9_\/.-]+)\s*\$\s+|[^\n]+))*))/giu, (match) => {
+    if (!match.startsWith("__") && !match.startsWith("<") && !match.startsWith("#")) {
+      const placeholder = `__TERM_BLOCK_${termBlocks.length}__`;
+      const clean = match.trim().replace(/^(?:Ran|Run|Running)\s*\n?/i, "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
+      termBlocks.push(`\n<div class="terminal-card"><pre class="terminal-body"><code>${clean}</code></pre></div>\n`);
+      return placeholder;
+    }
+    return match;
   });
 
-  // 6. Layer 6: Answer Body (Remaining prose, markdown, tables)
+  // 5. Layer 5: HTML Escape & Answer Markdown
   let answerHtml = raw
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;");
-
-  // Markdown Tables
-  answerHtml = answerHtml.replace(/((?:\|[^\n]+\|\r?\n)+)/g, (tableMatch) => {
-    const rows = tableMatch.trim().split("\n").map(r => r.trim());
-    if (rows.length < 2) return tableMatch;
-
-    const headerCells = rows[0].split("|").slice(1, -1).map(c => c.trim());
-    const isDivider = /^\|?[\s:-|-]+\|?$/.test(rows[1]);
-    const dataRows = isDivider ? rows.slice(2) : rows.slice(1);
-
-    let tableHtml = "<div class=\"markdown-table-wrapper\"><table class=\"markdown-table\"><thead><tr>";
-    headerCells.forEach(h => { tableHtml += `<th>${h}</th>`; });
-    tableHtml += "</tr></thead><tbody>";
-
-    dataRows.forEach(row => {
-      const cells = row.split("|").slice(1, -1).map(c => c.trim());
-      if (cells.length) {
-        tableHtml += "<tr>";
-        cells.forEach(c => { tableHtml += `<td>${c}</td>`; });
-        tableHtml += "</tr>";
-      }
-    });
-
-    tableHtml += "</tbody></table></div>";
-    return tableHtml;
-  });
 
   // Headings
   answerHtml = answerHtml.replace(/^### (.*$)/gim, "<h3 class=\"prose-h3\">$1</h3>");
@@ -751,17 +710,17 @@ function renderMarkdown(text) {
   answerHtml = answerHtml.replace(/\*([^\*]+)\*/g, "<em>$1</em>");
   answerHtml = answerHtml.replace(/\[([^\]]+)\]\(([^)]+)\)/g, "<a href=\"$2\" target=\"_blank\" class=\"prose-a\">$1</a>");
 
-  // Restore math blocks
+  // Restore placeholders
+  termBlocks.forEach((tbHtml, idx) => {
+    answerHtml = answerHtml.replace(`__TERM_BLOCK_${idx}__`, tbHtml);
+  });
   mathBlocks.forEach((mbHtml, idx) => {
     answerHtml = answerHtml.replace(`__MATH_BLOCK_${idx}__`, mbHtml);
   });
-
-  // Restore code block placeholders
   codeBlocks.forEach((cbHtml, idx) => {
     answerHtml = answerHtml.replace(`__CODE_BLOCK_${idx}__`, cbHtml);
   });
 
-  // Paragraph wrapping
   const rawParagraphs = answerHtml.split(/\n\n+/);
   const formattedAnswer = rawParagraphs.map(p => {
     const trimmed = p.trim();
@@ -774,7 +733,7 @@ function renderMarkdown(text) {
     return `<p class=\"prose-p\">${trimmed.replace(/\n/g, "<br>")}</p>`;
   }).filter(Boolean).join("");
 
-  return (thoughtHtml + initialCmdHtml + formattedAnswer).trim();
+  return (thoughtHtml + formattedAnswer).trim();
 }
 
 window.copyCode = function(btn) {
