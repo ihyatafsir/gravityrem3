@@ -925,29 +925,73 @@ class CdpBridge {
   }
 
   async startNewChat() {
+    const CLICK_EXP = `(async () => {
+      try {
+        const newBtn = document.querySelector('[data-tooltip-id="new-conversation-tooltip"]') ||
+                       document.querySelector('a[data-tooltip-id*="new-conversation"]') ||
+                       document.querySelector('[data-past-conversations-toggle="true"]')?.parentElement?.querySelector('[data-tooltip-id*="new"]') ||
+                       Array.from(document.querySelectorAll('a, button, [role="button"]')).find(el => {
+                         const aria = el.getAttribute('aria-label') || el.getAttribute('title') || el.innerText || '';
+                         return /new conversation|new chat|start new/i.test(aria);
+                       });
+
+        if (newBtn) {
+          try {
+            newBtn.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true, cancelable: true, view: window }));
+            newBtn.dispatchEvent(new MouseEvent("mousedown", { bubbles: true, cancelable: true, view: window }));
+            newBtn.dispatchEvent(new PointerEvent("pointerup", { bubbles: true, cancelable: true, view: window }));
+            newBtn.dispatchEvent(new MouseEvent("mouseup", { bubbles: true, cancelable: true, view: window }));
+            newBtn.click();
+          } catch(e) {
+            newBtn.click();
+          }
+          return { ok: true, method: 'dom_new_conversation_tooltip' };
+        }
+        return { ok: false, error: 'new_chat_btn_not_found' };
+      } catch(e) {
+        return { ok: false, error: e.toString() };
+      }
+    })()`;
+
     try {
-      await this.send('Input.dispatchKeyEvent', {
-        type: 'keyDown',
-        modifiers: 2,
-        windowsVirtualKeyCode: 76,
-        key: 'l',
-        code: 'KeyL'
-      });
-      await this.send('Input.dispatchKeyEvent', {
-        type: 'keyUp',
-        modifiers: 2,
-        windowsVirtualKeyCode: 76,
-        key: 'l',
-        code: 'KeyL'
-      });
+      let res = await this.evaluate(CLICK_EXP);
+      if (!res?.ok) {
+        for (const ctx of this.contexts) {
+          try {
+            const r = await this.send('Runtime.evaluate', {
+              expression: CLICK_EXP,
+              returnByValue: true,
+              awaitPromise: true,
+              contextId: ctx.id
+            });
+            if (r.result?.value?.ok) {
+              res = r.result.value;
+              break;
+            }
+          } catch(e) {}
+        }
+      }
+
+      // Activate Agent mode with Ctrl+E
+      await new Promise(r => setTimeout(r, 600));
+      try {
+        await this.send('Input.dispatchKeyEvent', {
+          type: 'keyDown', key: 'e', code: 'KeyE',
+          modifiers: 2, windowsVirtualKeyCode: 69, nativeVirtualKeyCode: 69
+        });
+        await this.send('Input.dispatchKeyEvent', {
+          type: 'keyUp', key: 'e', code: 'KeyE',
+          modifiers: 2, windowsVirtualKeyCode: 69, nativeVirtualKeyCode: 69
+        });
+      } catch(e) {}
 
       setTimeout(() => {
         this.discoverContexts();
         this.startObserver();
-      }, 1000);
+      }, 800);
 
-      return { ok: true };
-    } catch (e) {
+      return { ok: true, detail: res };
+    } catch(e) {
       return { ok: false, error: e.message };
     }
   }
