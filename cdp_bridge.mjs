@@ -195,10 +195,6 @@ const EXPRESSION_SCRAPE_ALL_MESSAGES = `(() => {
     if (markdown && markdown.innerText) {
       text = markdown.innerText.trim();
     } else {
-      // Clean status animations
-      text = text.replace(/Waiting for user input[\.]*/gi, '').trim();
-    }
-    } else {
       const textNodes = Array.from(a.querySelectorAll('p, span[data-lexical-text="true"], pre'));
       if (textNodes.length > 0) {
         text = textNodes.map(t => t.innerText ? t.innerText.trim() : '').filter(Boolean).join('\n\n');
@@ -213,13 +209,16 @@ const EXPRESSION_SCRAPE_ALL_MESSAGES = `(() => {
         text = lines.slice(0, -1).join('\n').trim();
       }
     } else {
-      // Preserve Thought for / Worked for so app.js renders collapsible thought cards
+      // Clean temporary animation text
+      text = text.replace(/Waiting for user input[\.]*/gi, '').trim();
+
+      // Tool Blocks & Commands
       const toolBlocks = Array.from(a.querySelectorAll('div[class*="group/run-command"], div[class*="run-command"], div[class*="terminal"]'));
       if (toolBlocks.length > 0) {
         const toolText = toolBlocks.map(tb => {
           const cmd = tb.innerText.trim();
-          return cmd ? "\`\`\`bash\n# Tool Execution\n" + cmd + "\n\`\`\`" : "";
-        }).filter(Boolean).join("\n\n");
+          return cmd ? "\n\`\`\`bash\n# Command Execution\n" + cmd + "\n\`\`\`\n" : "";
+        }).filter(Boolean).join("\n");
         if (toolText && !text.includes(toolText.slice(0, 30))) {
           text = text ? (toolText + "\n\n" + text) : toolText;
         }

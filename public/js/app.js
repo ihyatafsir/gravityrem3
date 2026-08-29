@@ -489,31 +489,25 @@ function renderMarkdown(text) {
     return res;
   });
 
-  // Tool Execution Blocks
-  html = html.replace(/(?:^|\n)(?:> ⚡ (?:Running Tool|Ran command|Tool Execution):?\s*\n)([\s\S]*?)(?=\n\n|$)/gim, (m, body) => {
-    return `\n<div class="tool-execution-card">
-      <div class="tool-execution-header">Tool Execution</div>
-      <div class="tool-execution-body">${body.trim()}</div>
-    </div>\n`;
+  // Format Ran / Shell / Terminal Command Output into a scrollable Terminal Card
+  html = html.replace(/(?:^|\n)(Ran\s*\n[\s\S]*)/gim, (m, terminalBlock) => {
+    const splitMatch = terminalBlock.match(/^(Ran\s*\n[\s\S]*?)(?:\n\n([A-Z][a-z0-9\s,.\x27"-]{20,}[\s\S]*))?$/s);
+    let termText = (splitMatch && splitMatch[1] ? splitMatch[1] : terminalBlock).trim();
+    const prose = splitMatch && splitMatch[2] ? splitMatch[2].trim() : "";
+
+    let res = `\n<div class="terminal-card">\n<div class="terminal-header">\n<span class="terminal-title">⚡ Command Output</span>\n</div>\n<pre class="terminal-body"><code>${termText}</code></pre>\n</div>\n\n`;
+    if (prose) res += prose;
+    return res;
   });
 
-  // Alerts
-  html = html.replace(/^&gt;\s*\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\]\s*\n([\s\S]*?)(?=\n\n|$)/gim, (m, type, content) => {
-    const alertType = type.toUpperCase();
-    const colors = {
-      NOTE: { border: "#0ea5e9", bg: "rgba(14, 165, 233, 0.12)" },
-      TIP: { border: "#10b981", bg: "rgba(16, 185, 129, 0.12)" },
-      IMPORTANT: { border: "#a855f7", bg: "rgba(168, 85, 247, 0.15)" },
-      WARNING: { border: "#f59e0b", bg: "rgba(245, 158, 11, 0.15)" },
-      CAUTION: { border: "#f43f5e", bg: "rgba(244, 63, 94, 0.15)" }
-    };
-    const c = colors[alertType] || colors.NOTE;
-    return `
-      <div style="border-left: 3px solid ${c.border}; background: ${c.bg}; padding: 8px 12px; border-radius: 4px; margin: 8px 0; font-size: 13px;">
-        <div style="font-weight: 700; color: #fff; margin-bottom: 2px; font-size: 11px; letter-spacing: 0.5px;">${alertType}</div>
-        <div>${content.trim().replace(/\n/g, "<br>")}</div>
+  // Tool Execution Blocks
+  html = html.replace(/(?:^|\n)(?:> ⚡ (?:Running Tool|Ran command|Tool Execution):?\s*\n)([\s\S]*?)(?=\n\n|$)/gim, (m, body) => {
+    return `\n<div class="terminal-card">
+      <div class="terminal-header">
+        <span class="terminal-title">Tool Execution</span>
       </div>
-    `;
+      <pre class="terminal-body"><code>${body.trim()}</code></pre>
+    </div>\n`;
   });
 
   // Code Blocks & Diffs

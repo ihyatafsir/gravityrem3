@@ -1603,3 +1603,45 @@ html, body {
   font-size: 11.5px !important;
   line-height: 1.45 !important;
 }
+
+/* ==========================================================================
+   Scrollable Terminal & Tool Execution Boxes (GravityRemote2 High-Fidelity)
+   ========================================================================== */
+.terminal-card {
+  background: #0d1117 !important;
+  border: 1px solid #30363d !important;
+  border-radius: 6px !important;
+  margin: 6px 0 !important;
+  overflow: hidden !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35) !important;
+}
+
+.terminal-header {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  padding: 5px 10px !important;
+  background: #161b22 !important;
+  border-bottom: 1px solid #21262d !important;
+  font-family: 'JetBrains Mono', monospace !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  color: #58a6ff !important;
+  user-select: none !important;
+}
+
+.terminal-body {
+  margin: 0 !important;
+  padding: 8px 12px !important;
+  max-height: 220px !important;
+  overflow-x: auto !important;
+  overflow-y: auto !important;
+  font-family: 'JetBrains Mono', 'Fira Code', ui-monospace, monospace !important;
+  font-size: 11.5px !important;
+  line-height: 1.45 !important;
+  color: #cbd5e1 !important;
+  background: #090d13 !important;
+  white-space: pre !important;
+  word-break: normal !important;
+  -webkit-overflow-scrolling: touch !important;
+}
