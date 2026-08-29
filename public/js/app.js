@@ -583,7 +583,7 @@ function renderMarkdown(text) {
     raw = raw.slice(thoughtHeaderMatch[0].length).trim();
 
     let thoughtBody = "Reasoning and tool execution completed";
-    const nextSectionIdx = raw.search(/(?:\n\n(?:```|###?|Step |Here |Check |I |The |All |Note:|📜|🛠️|🌟|🩺|🔍|\$\$|[A-Z\u{1F300}-\u{1F9FF}]))/u);
+    const nextSectionIdx = raw.search(/(?:\n\n(?:```|###?|Step |Here |Check |I |The |All |Note:|\$\$|[A-Z]))/);
     if (nextSectionIdx > 0) {
       const candidateBody = raw.slice(0, nextSectionIdx).trim();
       if (!candidateBody.startsWith("```") && !candidateBody.startsWith("#")) {
@@ -662,22 +662,7 @@ function renderMarkdown(text) {
     return placeholder;
   });
 
-  // 4. Layer 4: Strict Terminal Prompts (ONLY standalone shell lines like user@host:~$ cmd)
-  const termBlocks = [];
-  raw = raw.replace(/(?:^|
-)([ 	]*(?:~[a-zA-Z0-9_\/.-]+|\/home\/[a-zA-Z0-9_\/.-]+|[a-zA-Z0-9_.-]+@[a-zA-Z0-9_.-]+:[^
-]*)\s*[\$#]\s+[^
-]+)/g, (match, line) => {
-    const placeholder = `__TERM_BLOCK_${termBlocks.length}__`;
-    const clean = line.trim()
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;");
-    termBlocks.push(`\n<div class="terminal-card"><pre class="terminal-body"><code>${clean}</code></pre></div>\n`);
-    return "\n" + placeholder;
-  });
-
-  // 5. Layer 5: HTML Escape & Structured Typography
+  // 4. Layer 4: HTML Escape & Structured Typography
   let answerHtml = raw
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
@@ -695,14 +680,14 @@ function renderMarkdown(text) {
   answerHtml = answerHtml.replace(/^> (.*$)/gim, '<blockquote class="prose-quote">$1</blockquote>');
 
   // Unordered Lists
-  answerHtml = answerHtml.replace(/(?:^[ 	]*[-*] .+(?:\n[ 	]*[-*] .+)*)/gm, (listBlock) => {
-    const items = listBlock.split("\n").map(li => li.replace(/^[ 	]*[-*] /, "").trim()).filter(Boolean);
+  answerHtml = answerHtml.replace(/(?:^[ \t]*[-*] .+(?:\n[ \t]*[-*] .+)*)/gm, (listBlock) => {
+    const items = listBlock.split("\n").map(li => li.replace(/^[ \t]*[-*] /, "").trim()).filter(Boolean);
     return `<ul class="prose-ul">${items.map(it => `<li>${it}</li>`).join("")}</ul>`;
   });
 
   // Ordered Lists
-  answerHtml = answerHtml.replace(/(?:^[ 	]*\d+\. .+(?:\n[ 	]*\d+\. .+)*)/gm, (listBlock) => {
-    const items = listBlock.split("\n").map(li => li.replace(/^[ 	]*\d+\. /, "").trim()).filter(Boolean);
+  answerHtml = answerHtml.replace(/(?:^[ \t]*\d+\. .+(?:\n[ \t]*\d+\. .+)*)/gm, (listBlock) => {
+    const items = listBlock.split("\n").map(li => li.replace(/^[ \t]*\d+\. /, "").trim()).filter(Boolean);
     return `<ol class="prose-ol">${items.map(it => `<li>${it}</li>`).join("")}</ol>`;
   });
 
@@ -713,9 +698,6 @@ function renderMarkdown(text) {
   answerHtml = answerHtml.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" class="prose-a">$1</a>');
 
   // Restore placeholders
-  termBlocks.forEach((tbHtml, idx) => {
-    answerHtml = answerHtml.replace(`__TERM_BLOCK_${idx}__`, tbHtml);
-  });
   mathBlocks.forEach((mbHtml, idx) => {
     answerHtml = answerHtml.replace(`__MATH_BLOCK_${idx}__`, mbHtml);
   });
