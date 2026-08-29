@@ -100,6 +100,33 @@ setInterval(() => {
   }
 }, 2500);
 
+function mergeAgentMessage(existingText, incomingText) {
+  if (!existingText) return incomingText || '';
+  if (!incomingText) return existingText || '';
+
+  const thoughtMatch = existingText.match(/^(?:Thought for [0-9smh\s]+|Worked for [0-9smh\s]+|Thinking Process:?)/i);
+  const thoughtPart = thoughtMatch ? thoughtMatch[0].trim() : '';
+
+  const cmdMatch = existingText.match(/((?:Ran|Run|Running)\s*\n[\s\S]*?)(?=\n\n(?:[A-Z\u{1F300}-\u{1F9FF}]|Step |Here |Check |I |The |All |Note:|###?|🔍|\$\$)|$)/iu);
+  const cmdPart = cmdMatch ? cmdMatch[1].trim() : '';
+
+  let cleanIncoming = incomingText.trim();
+
+  if (cmdPart && cleanIncoming.includes(cmdPart.slice(0, 30))) {
+    return cleanIncoming;
+  }
+
+  let result = '';
+  if (thoughtPart && !cleanIncoming.startsWith(thoughtPart)) {
+    result += thoughtPart + '\n\n';
+  }
+  if (cmdPart) {
+    result += cmdPart + '\n\n';
+  }
+  result += cleanIncoming;
+  return result.trim();
+}
+
 cdpBridge.onNewMessage = (msg) => {
   if (!msg || !msg.text) return;
 
@@ -122,12 +149,15 @@ cdpBridge.onNewMessage = (msg) => {
     return;
   }
 
-  // If same sender is agent, update in-place to prevent duplicate bubbles
+  // If same sender is agent, merge with existing message to preserve commands & answers
   if (last.from === normalizedMsg.from && normalizedMsg.from === 'agent') {
-    STATE.messages[lastIndex].text = normalizedMsg.text;
-    STATE.messages[lastIndex].timestamp = normalizedMsg.timestamp;
-    saveState();
-    broadcast('message_update', { index: lastIndex, message: STATE.messages[lastIndex] });
+    const mergedText = mergeAgentMessage(last.text, normalizedMsg.text);
+    if (mergedText !== last.text) {
+      STATE.messages[lastIndex].text = mergedText;
+      STATE.messages[lastIndex].timestamp = normalizedMsg.timestamp;
+      saveState();
+      broadcast('message_update', { index: lastIndex, message: STATE.messages[lastIndex] });
+    }
     return;
   }
 

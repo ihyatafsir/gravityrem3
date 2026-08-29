@@ -473,72 +473,97 @@ async function syncChat() {
 function renderMarkdown(text) {
   if (!text) return "";
 
-  let html = text
+  let raw = text.trim();
+
+  // 1. Layer 1: Thought Badge (Single header line: Thought for Xs / Worked for Xs)
+  let thoughtHtml = "";
+  const thoughtHeaderMatch = raw.match(/^(Thought for [0-9smh\s]+|Worked for [0-9smh\s]+|Thinking Process:?)/i);
+  if (thoughtHeaderMatch) {
+    const title = thoughtHeaderMatch[1].trim();
+    thoughtHtml = `\n<details class="thought-card">\n<summary class="thought-summary">\n<span class="thought-title">${title}</span>\n<span class="thought-chevron">▾ Details</span>\n</summary>\n<div class="thought-content">Reasoning and tool execution completed</div>\n</details>\n\n`;
+    raw = raw.slice(thoughtHeaderMatch[0].length).trim();
+  }
+
+  // 2. Layer 2: Ran/Run Terminal Command Block
+  let cmdHtml = "";
+  const cmdMatch = raw.match(/^((?:Ran|Run|Running)\s*\n[\s\S]*?)(?=(?:\n\n(?:[A-Z\u{1F300}-\u{1F9FF}]|Step |Here |Check |I |The |All |Note:|###?|🔍|\$\$))|$)/iu);
+  if (cmdMatch) {
+    let cleanCmd = cmdMatch[1].replace(/^(?:Ran|Run|Running)\s*\n/i, "").trim();
+    cmdHtml = `\n<div class="terminal-card">\n<pre class="terminal-body"><code>${cleanCmd.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")}</code></pre>\n</div>\n\n`;
+    raw = raw.slice(cmdMatch[0].length).trim();
+  }
+
+  // 3. Layer 3: Answer Body (Render prose, math, tables, code)
+  let answerHtml = raw
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;");
 
-  // Format Thought Blocks (Collapsible Neutral Accordion)
-  html = html.replace(/(?:^|\n)(Thought for [0-9smh\s]+|Worked for [0-9smh\s]+|Thinking Process)([\s\S]*)/gim, (m, title, rest) => {
-    const splitMatch = rest.match(/^(.*?)(?:\n\n([A-Z\u{1F300}-\u{1F9FF}][\s\S]*))?$/su);
-    let thoughtBody = (splitMatch && splitMatch[1] ? splitMatch[1] : rest).trim();
-    const prose = splitMatch && splitMatch[2] ? splitMatch[2].trim() : "";
-
-    let res = `\n<details class="thought-card">\n<summary class="thought-summary">\n<span class="thought-title">${title.trim()}</span>\n<span class="thought-chevron">▾ Details</span>\n</summary>\n<div class="thought-content">${thoughtBody || "Thinking completed"}</div>\n</details>\n\n`;
-    if (prose) res += prose;
-    return res;
+  // Math Formatting: Block equations $$ ... $$
+  answerHtml = answerHtml.replace(/\$\$([\s\S]*?)\$\$/g, (m, math) => {
+    let clean = math
+      .replace(/\\mathbf\{([^}]+)\}/g, "<strong>$1</strong>")
+      .replace(/\\text\{([^}]+)\}/g, "$1")
+      .replace(/\\frac\{([^}]+)\}\{([^}]+)\}/g, "($1 / $2)")
+      .replace(/\\begin\{aligned\}|\\end\{aligned\}/g, "")
+      .replace(/\\times/g, "×")
+      .replace(/\\div/g, "÷")
+      .replace(/\\approx/g, "≈")
+      .replace(/\\le(q)?/g, "≤")
+      .replace(/\\ge(q)?/g, "≥")
+      .replace(/\\dots/g, "…")
+      .replace(/\\sqrt\{([^}]+)\}/g, "√($1)")
+      .replace(/\^2/g, "²")
+      .replace(/\^3/g, "³")
+      .replace(/\^([0-9]+)/g, "<sup>$1</sup>")
+      .replace(/\\\\/g, "<br>")
+      .replace(/&amp;/g, " ")
+      .trim();
+    return `\n<div class="math-block">${clean}</div>\n`;
   });
 
-  // Format Ran / Run / Running Command Output (No literal Ran/Run prefix, Single Thin Box)
-  html = html.replace(/(?:^|\n)((?:Ran|Run|Running)\s*\n[\s\S]*)/gim, (m, terminalBlock) => {
-    const splitMatch = terminalBlock.match(/^((?:Ran|Run|Running)\s*\n[\s\S]*?)(?:\n\n([A-Z\u{1F300}-\u{1F9FF}][\s\S]*))?$/su);
-    let termText = (splitMatch && splitMatch[1] ? splitMatch[1] : terminalBlock).trim();
-    const prose = splitMatch && splitMatch[2] ? splitMatch[2].trim() : "";
-
-    let cleanCmd = termText.replace(/^(?:Ran|Run|Running)\s*\n/i, "").trim();
-    let res = `\n<div class="terminal-card">\n<pre class="terminal-body"><code>${cleanCmd}</code></pre>\n</div>\n\n`;
-    if (prose) res += prose;
-    return res;
+  // Math Formatting: Inline equations $ ... $
+  answerHtml = answerHtml.replace(/\$([^$\n]+)\$/g, (m, math) => {
+    let clean = math
+      .replace(/\\mathbf\{([^}]+)\}/g, "<strong>$1</strong>")
+      .replace(/\\text\{([^}]+)\}/g, "$1")
+      .replace(/\\frac\{([^}]+)\}\{([^}]+)\}/g, "($1 / $2)")
+      .replace(/\\times/g, "×")
+      .replace(/\\div/g, "÷")
+      .replace(/\\approx/g, "≈")
+      .replace(/\\le(q)?/g, "≤")
+      .replace(/\\ge(q)?/g, "≥")
+      .replace(/\\dots/g, "…")
+      .replace(/\\sqrt\{([^}]+)\}/g, "√($1)")
+      .replace(/\^2/g, "²")
+      .replace(/\^3/g, "³")
+      .replace(/\^([0-9]+)/g, "<sup>$1</sup>")
+      .trim();
+    return `<span class="math-inline">${clean}</span>`;
   });
 
-  // Tool Execution Blocks
-  html = html.replace(/(?:^|\n)(?:> (?:Running Tool|Ran command|Tool Execution):?\s*\n)([\s\S]*?)(?=\n\n|$)/gim, (m, body) => {
-    return `\n<div class="terminal-card">
-      <pre class="terminal-body"><code>${body.trim()}</code></pre>
-    </div>\n`;
+  // Tab-separated tables
+  answerHtml = answerHtml.replace(/((?:[^\n\t]+\t[^\n\t]+(?:\t[^\n\t]+)*\r?\n?){2,})/g, (match) => {
+    const rows = match.trim().split("\n").map(r => r.trim());
+    if (rows.length < 2) return match;
+
+    let tableHtml = "<div class=\"markdown-table-wrapper\"><table class=\"markdown-table\">";
+    rows.forEach((row, rIdx) => {
+      const cells = row.split("\t").map(c => c.trim()).filter(Boolean);
+      if (cells.length > 1) {
+        if (rIdx === 0) {
+          tableHtml += "<thead><tr>" + cells.map(c => `<th>${c}</th>`).join("") + "</tr></thead><tbody>";
+        } else {
+          tableHtml += "<tr>" + cells.map(c => `<td>${c}</td>`).join("") + "</tr>";
+        }
+      }
+    });
+    tableHtml += "</tbody></table></div>";
+    return tableHtml;
   });
-
-  // Code Blocks & Diffs
-  html = html.replace(/```([a-zA-Z0-9_-]*)\n([\s\S]*?)```/g, (match, lang, code) => {
-    const langLabel = lang || "code";
-    let formattedCode = code.trim();
-
-    if (langLabel === "diff") {
-      formattedCode = formattedCode.split("\n").map(line => {
-        if (line.startsWith("+")) return `<span class="diff-add">${line}</span>`;
-        if (line.startsWith("-")) return `<span class="diff-del">${line}</span>`;
-        return line;
-      }).join("\n");
-    }
-
-    return `
-      <div class="code-container">
-        <div class="code-header">
-          <span>${langLabel}</span>
-          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
-        </div>
-        <pre><code class="language-${langLabel}">${formattedCode}</code></pre>
-      </div>
-    `;
-  });
-
-  // Headings
-  html = html.replace(/^### (.*$)/gim, "<h3 class=\"prose-h3\">$1</h3>");
-  html = html.replace(/^## (.*$)/gim, "<h2 class=\"prose-h2\">$1</h2>");
-  html = html.replace(/^# (.*$)/gim, "<h1 class=\"prose-h1\">$1</h1>");
 
   // Markdown Tables
-  html = html.replace(/((?:\|[^\n]+\|\r?\n)+)/g, (tableMatch) => {
+  answerHtml = answerHtml.replace(/((?:\|[^\n]+\|\r?\n)+)/g, (tableMatch) => {
     const rows = tableMatch.trim().split("\n").map(r => r.trim());
     if (rows.length < 2) return tableMatch;
 
@@ -563,38 +588,47 @@ function renderMarkdown(text) {
     return tableHtml;
   });
 
-  // Tab-separated tables
-  html = html.replace(/((?:[^\n\t]+\t[^\n\t]+(?:\t[^\n\t]+)*\r?\n?){2,})/g, (match) => {
-    const rows = match.trim().split("\n").map(r => r.trim());
-    if (rows.length < 2) return match;
+  // Code Blocks & Diffs
+  answerHtml = answerHtml.replace(/```([a-zA-Z0-9_-]*)\n([\s\S]*?)```/g, (match, lang, code) => {
+    const langLabel = lang || "code";
+    let formattedCode = code.trim();
 
-    let tableHtml = "<div class=\"markdown-table-wrapper\"><table class=\"markdown-table\">";
-    rows.forEach((row, rIdx) => {
-      const cells = row.split("\t").map(c => c.trim()).filter(Boolean);
-      if (cells.length > 1) {
-        if (rIdx === 0) {
-          tableHtml += "<thead><tr>" + cells.map(c => `<th>${c}</th>`).join("") + "</tr></thead><tbody>";
-        } else {
-          tableHtml += "<tr>" + cells.map(c => `<td>${c}</td>`).join("") + "</tr>";
-        }
-      }
-    });
-    tableHtml += "</tbody></table></div>";
-    return tableHtml;
+    if (langLabel === "diff") {
+      formattedCode = formattedCode.split("\n").map(line => {
+        if (line.startsWith("+")) return `<span class="diff-add">${line}</span>`;
+        if (line.startsWith("-")) return `<span class="diff-del">${line}</span>`;
+        return line;
+      }).join("\n");
+    }
+
+    return `
+      <div class="code-container">
+        <div class="code-header">
+          <span>${langLabel}</span>
+          <button class="copy-btn" onclick="copyCode(this)">Copy</button>
+        </div>
+        <pre><code class="language-${langLabel}">${formattedCode}</code></pre>
+      </div>
+    `;
   });
 
+  // Headings
+  answerHtml = answerHtml.replace(/^### (.*$)/gim, "<h3 class=\"prose-h3\">$1</h3>");
+  answerHtml = answerHtml.replace(/^## (.*$)/gim, "<h2 class=\"prose-h2\">$1</h2>");
+  answerHtml = answerHtml.replace(/^# (.*$)/gim, "<h1 class=\"prose-h1\">$1</h1>");
+
   // Checkboxes
-  html = html.replace(/\[ \]\s*(.+)/g, "<span style=\"color:var(--text-secondary);\">[ ] $1</span>");
-  html = html.replace(/\[x\]\s*(.+)/gi, "<span style=\"color:var(--emerald-glow);\">[x] $1</span>");
+  answerHtml = answerHtml.replace(/\[ \]\s*(.+)/g, "<span style=\"color:var(--text-secondary);\">[ ] $1</span>");
+  answerHtml = answerHtml.replace(/\[x\]\s*(.+)/gi, "<span style=\"color:var(--emerald-glow);\">[x] $1</span>");
 
   // Inline formatting
-  html = html.replace(/`([^`]+)`/g, "<code>$1</code>");
-  html = html.replace(/\*\*([^\*]+)\*\*/g, "<strong>$1</strong>");
-  html = html.replace(/\*([^\*]+)\*/g, "<em>$1</em>");
-  html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, "<a href=\"$2\" target=\"_blank\" class=\"prose-a\">$1</a>");
+  answerHtml = answerHtml.replace(/`([^`]+)`/g, "<code>$1</code>");
+  answerHtml = answerHtml.replace(/\*\*([^\*]+)\*\*/g, "<strong>$1</strong>");
+  answerHtml = answerHtml.replace(/\*([^\*]+)\*/g, "<em>$1</em>");
+  answerHtml = answerHtml.replace(/\[([^\]]+)\]\(([^)]+)\)/g, "<a href=\"$2\" target=\"_blank\" class=\"prose-a\">$1</a>");
 
-  const rawParagraphs = html.split(/\n\n+/);
-  return rawParagraphs.map(p => {
+  const rawParagraphs = answerHtml.split(/\n\n+/);
+  const formattedAnswer = rawParagraphs.map(p => {
     const trimmed = p.trim();
     if (!trimmed) return "";
     if (trimmed.startsWith("<details") || trimmed.startsWith("<div") || trimmed.startsWith("<h") || trimmed.startsWith("<table")) {
@@ -602,6 +636,8 @@ function renderMarkdown(text) {
     }
     return `<p>${trimmed.replace(/\n/g, "<br>")}</p>`;
   }).filter(Boolean).join("");
+
+  return (thoughtHtml + cmdHtml + formattedAnswer).trim();
 }
 
 window.copyCode = function(btn) {

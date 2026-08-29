@@ -1754,3 +1754,72 @@ pre, pre code, .terminal-body, .terminal-body code, .code-container pre, .code-c
   border-radius: 6px !important;
   margin: 4px 0 !important;
 }
+
+/* ==========================================================================
+   GravityRemote2 High-Fidelity Ultra-Thin Styling Standards
+   ========================================================================== */
+.thought-card {
+  background: rgba(255, 255, 255, 0.02) !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+  border-radius: 6px !important;
+  padding: 4px 8px !important;
+  margin: 3px 0 6px 0 !important;
+}
+
+.thought-summary {
+  display: flex !important;
+  justify-content: space-between !important;
+  align-items: center !important;
+  cursor: pointer !important;
+  font-size: 11px !important;
+  color: #94a3b8 !important;
+  user-select: none !important;
+}
+
+.thought-content {
+  padding-top: 4px !important;
+  font-size: 11px !important;
+  color: #64748b !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.04) !important;
+  margin-top: 4px !important;
+}
+
+.terminal-card {
+  background: #090d13 !important;
+  border: 1px solid rgba(255, 255, 255, 0.07) !important;
+  border-radius: 6px !important;
+  margin: 6px 0 10px 0 !important;
+  overflow: hidden !important;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3) !important;
+}
+
+.terminal-body {
+  margin: 0 !important;
+  padding: 6px 10px !important;
+  max-height: 200px !important;
+  overflow-x: auto !important;
+  overflow-y: auto !important;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace !important;
+  font-size: 11px !important;
+  line-height: 1.4 !important;
+  color: #cbd5e1 !important;
+  background: transparent !important;
+  white-space: pre !important;
+  word-break: normal !important;
+  -webkit-overflow-scrolling: touch !important;
+}
+
+.message-bubble {
+  color: #f1f5f9 !important;
+  font-size: 14.5px !important;
+  line-height: 1.55 !important;
+}
+
+.message-bubble p {
+  margin: 4px 0 8px 0 !important;
+  color: #f1f5f9 !important;
+}
+
+.message-bubble .markdown-table-wrapper {
+  margin: 8px 0 !important;
+}
