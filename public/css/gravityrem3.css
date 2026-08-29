@@ -1905,3 +1905,33 @@ pre, pre code, .terminal-body, .terminal-body code, .code-container pre, .code-c
   margin-right: auto !important;
   text-align: left !important;
 }
+
+/* Queue Send Now and Clear Buttons */
+.queue-send-now-btn {
+  background: rgba(168, 85, 247, 0.3) !important;
+  border: 1px solid rgba(168, 85, 247, 0.6) !important;
+  color: #f3e8ff !important;
+  font-size: 10.5px !important;
+  font-weight: 600 !important;
+  padding: 2px 8px !important;
+  border-radius: 4px !important;
+  cursor: pointer !important;
+  transition: all 0.15s ease !important;
+  white-space: nowrap !important;
+}
+
+.queue-send-now-btn:active {
+  background: rgba(168, 85, 247, 0.6) !important;
+  transform: scale(0.95);
+}
+
+.queue-clear-btn {
+  background: none !important;
+  border: none !important;
+  color: var(--rose-glow) !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  cursor: pointer !important;
+  padding: 2px 4px !important;
+  white-space: nowrap !important;
+}

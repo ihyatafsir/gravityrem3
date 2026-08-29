@@ -873,6 +873,14 @@ function dispatchQueuedMessage() {
   postMessageDirect(nextMsg);
 }
 
+window.sendQueuedNow = function() {
+  haptic(25);
+  if (state.messageQueue.length === 0) return;
+  const nextMsg = state.messageQueue.shift();
+  updateQueueUI();
+  postMessageDirect(nextMsg);
+};
+
 window.clearMessageQueue = function() {
   haptic(20);
   state.messageQueue = [];

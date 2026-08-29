@@ -113,11 +113,14 @@
 
       <!-- Queue Tray Bar (Visible when agent is busy) -->
       <div id="queue-tray-bar" class="queue-tray-bar">
-        <div style="display: flex; align-items: center; gap: 6px;">
+        <div style="display: flex; align-items: center; gap: 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1;">
           <span class="queue-badge" id="queue-count-badge">1</span>
-          <span id="queue-preview-text">Directive queued...</span>
+          <span id="queue-preview-text" style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">Directive queued...</span>
         </div>
-        <button onclick="clearMessageQueue()" style="background:none; border:none; color:var(--rose-glow); font-size:11px; font-weight:700; cursor:pointer;">Clear</button>
+        <div style="display: flex; align-items: center; gap: 6px; flex-shrink: 0;">
+          <button id="queue-send-now-btn" onclick="sendQueuedNow()" class="queue-send-now-btn">Send Now</button>
+          <button onclick="clearMessageQueue()" class="queue-clear-btn">Clear</button>
+        </div>
       </div>
 
       <!-- Quick Action Directives Carousel -->
