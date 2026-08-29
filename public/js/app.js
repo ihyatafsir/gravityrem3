@@ -201,7 +201,6 @@ function connectWebSocket() {
   state.ws.onopen = () => {
     state.connected = true;
     updateStatus('Live', 'online');
-    syncChat();
     fetchLiveModels();
   };
 
