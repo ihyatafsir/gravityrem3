@@ -813,7 +813,7 @@ class CdpBridge {
       await this.send('Input.insertText', { text });
       await new Promise(r => setTimeout(r, 150));
 
-      // 4. Submit cleanly via Enter key (prevent clicking newly transformed stop button)
+            // 4. Submit cleanly via Enter key + Button Click fallback
       await this.send('Input.dispatchKeyEvent', {
         type: 'rawKeyDown', key: 'Enter', code: 'Enter',
         windowsVirtualKeyCode: 13, nativeVirtualKeyCode: 13
@@ -822,6 +822,20 @@ class CdpBridge {
         type: 'keyUp', key: 'Enter', code: 'Enter',
         windowsVirtualKeyCode: 13, nativeVirtualKeyCode: 13
       });
+
+      await new Promise(r => setTimeout(r, 80));
+
+      await this.evaluate(`(() => {
+        const submit = document.querySelector('[data-tooltip-id="input-send-button-send-tooltip"]') ||
+                       document.querySelector('[data-tooltip-id="input-send-button-pending-tooltip"]') ||
+                       document.querySelector('button[aria-label^="Send" i]') ||
+                       document.querySelector('button svg.lucide-arrow-right')?.closest('button') ||
+                       document.querySelector('button svg.lucide-corner-down-left')?.closest('button');
+        if (submit && !submit.disabled) {
+          submit.click();
+          try { submit.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, view: window })); } catch(e) {}
+        }
+      })()`);
 
       return { ok: true, method: 'native_cdp_injection', length: text.length };
     } catch (e) {

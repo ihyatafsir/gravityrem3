@@ -158,10 +158,24 @@ cdpBridge.onNewMessage = (msg) => {
   const lastIndex = STATE.messages.length - 1;
   const last = STATE.messages[lastIndex];
 
+  // 1. Exact match on last message -> ignore
   if (last.text === normalizedMsg.text && last.from === normalizedMsg.from) {
     return;
   }
 
+  // 2. Prevent repeating old agent message if it already exists as previous agent response
+  if (normalizedMsg.from === 'agent') {
+    for (let i = STATE.messages.length - 1; i >= 0; i--) {
+      if (STATE.messages[i].from === 'agent') {
+        if (STATE.messages[i].text === normalizedMsg.text) {
+          return; // Identical previous agent output, do not duplicate!
+        }
+        break;
+      }
+    }
+  }
+
+  // 3. In-place merge for streaming agent turns
   if (last.from === normalizedMsg.from && normalizedMsg.from === 'agent') {
     const mergedText = mergeAgentMessage(last.text, normalizedMsg.text);
     if (mergedText !== last.text) {
@@ -173,6 +187,7 @@ cdpBridge.onNewMessage = (msg) => {
     return;
   }
 
+  // 4. New distinct message
   STATE.messages.push(normalizedMsg);
   if (STATE.messages.length > 300) STATE.messages.shift();
   saveState();
