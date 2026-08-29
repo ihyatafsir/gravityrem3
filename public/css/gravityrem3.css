@@ -1092,3 +1092,34 @@ html, body {
   margin-right: 6px;
   vertical-align: middle;
 }
+
+/* ----------------------------------------------------------------------
+   Load Earlier Messages Banner (DOM Trimming)
+---------------------------------------------------------------------- */
+.load-earlier-banner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 8px 16px;
+  margin: 8px auto 16px auto;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px dashed var(--border-glass);
+  border-radius: var(--radius-pill);
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  cursor: pointer;
+  width: fit-content;
+  max-width: 90%;
+  transition: all 0.2s ease;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.load-earlier-banner:active, .load-earlier-banner:hover {
+  background: var(--emerald-dim);
+  border-color: var(--emerald);
+  color: var(--emerald-glow);
+  transform: scale(0.98);
+}

@@ -24,7 +24,8 @@ const state = {
   terminalHistory: [],
   terminalHistoryIndex: -1,
   currentTheme: localStorage.getItem('ag_theme') || 'matrix',
-  searchQuery: ''
+  searchQuery: '',
+  visibleLimit: 80
 };
 
 function formatShortModelName(name) {
@@ -506,7 +507,7 @@ window.copyCode = function(btn) {
 };
 
 // ----------------------------------------------------------------------
-// Chat Feed & Search Filter
+// Chat Feed & Mobile DOM Memory Trimming (Sliding Window v3.4)
 // ----------------------------------------------------------------------
 function renderMessages() {
   if (!elements.chatViewport) return;
@@ -530,11 +531,42 @@ function renderMessages() {
     return;
   }
 
-  for (const msg of filtered) {
+  // Calculate sliding window
+  const total = filtered.length;
+  const startIndex = Math.max(0, total - state.visibleLimit);
+  const visibleMessages = filtered.slice(startIndex);
+
+  // If older messages exist, prepend the interactive Load Earlier banner
+  if (startIndex > 0) {
+    const banner = document.createElement('div');
+    banner.id = 'load-earlier-banner';
+    banner.className = 'load-earlier-banner';
+    banner.innerHTML = `<span>⬆ Load earlier messages (${startIndex} older)</span>`;
+    banner.onclick = loadEarlierMessages;
+    elements.chatViewport.appendChild(banner);
+  }
+
+  for (const msg of visibleMessages) {
     appendMessageUI(msg, false);
   }
-  scrollToBottom();
+
+  if (!state.userScrolledUp) {
+    scrollToBottom();
+  }
 }
+
+window.loadEarlierMessages = function() {
+  haptic(15);
+  const oldScrollHeight = elements.chatViewport.scrollHeight;
+  const oldScrollTop = elements.chatViewport.scrollTop;
+
+  state.visibleLimit += 50;
+  renderMessages();
+
+  // Preserve scroll offset so the screen does not jump
+  const newScrollHeight = elements.chatViewport.scrollHeight;
+  elements.chatViewport.scrollTop = oldScrollTop + (newScrollHeight - oldScrollHeight);
+};
 
 function appendMessageUI(msg, scroll = true) {
   if (!elements.chatViewport) return;
@@ -557,6 +589,29 @@ function appendMessageUI(msg, scroll = true) {
   `;
 
   elements.chatViewport.appendChild(row);
+
+  // Dynamic DOM Trimming: keep active DOM bounded to prevent mobile Chrome tab discarding
+  if (!state.searchQuery && !state.userScrolledUp) {
+    const rows = elements.chatViewport.querySelectorAll('.message-row');
+    if (rows.length > state.visibleLimit + 10) {
+      const excess = rows.length - state.visibleLimit;
+      for (let i = 0; i < excess; i++) {
+        rows[i].remove();
+      }
+      let banner = document.getElementById('load-earlier-banner');
+      const hiddenCount = state.messages.length - state.visibleLimit;
+      if (hiddenCount > 0) {
+        if (!banner) {
+          banner = document.createElement('div');
+          banner.id = 'load-earlier-banner';
+          banner.className = 'load-earlier-banner';
+          banner.onclick = loadEarlierMessages;
+          elements.chatViewport.insertBefore(banner, elements.chatViewport.firstChild);
+        }
+        banner.innerHTML = `<span>⬆ Load earlier messages (${hiddenCount} older)</span>`;
+      }
+    }
+  }
 
   if (scroll) {
     if (state.userScrolledUp) {
