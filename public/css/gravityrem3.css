@@ -423,8 +423,9 @@ html, body {
 }
 
 .message-row.user {
-  align-self: flex-end;
-  align-items: flex-end;
+  align-self: flex-start !important;
+  align-items: flex-start !important;
+  max-width: 98% !important;
 }
 
 .message-row.agent {
@@ -1644,4 +1645,23 @@ html, body {
   white-space: pre !important;
   word-break: normal !important;
   -webkit-overflow-scrolling: touch !important;
+}
+
+/* ==========================================================================
+   Left-Aligned User & Agent Messages
+   ========================================================================== */
+.message-row.user {
+  align-self: flex-start !important;
+  align-items: flex-start !important;
+  max-width: 98% !important;
+}
+
+.message-row.user .message-meta {
+  justify-content: flex-start !important;
+}
+
+.message-row.user .message-bubble {
+  border-bottom-left-radius: 3px !important;
+  border-bottom-right-radius: 8px !important;
+  width: 100% !important;
 }
