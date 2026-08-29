@@ -195,6 +195,10 @@ const EXPRESSION_SCRAPE_ALL_MESSAGES = `(() => {
     if (markdown && markdown.innerText) {
       text = markdown.innerText.trim();
     } else {
+      // Clean status animations
+      text = text.replace(/Waiting for user input[\.]*/gi, '').trim();
+    }
+    } else {
       const textNodes = Array.from(a.querySelectorAll('p, span[data-lexical-text="true"], pre'));
       if (textNodes.length > 0) {
         text = textNodes.map(t => t.innerText ? t.innerText.trim() : '').filter(Boolean).join('\n\n');

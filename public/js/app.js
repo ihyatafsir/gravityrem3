@@ -479,7 +479,7 @@ function renderMarkdown(text) {
     .replace(/>/g, "&gt;");
 
   // Collapsible Thought Blocks
-  html = html.replace(/(?:^|\n)(Thought for [0-9smh\s]+|Worked for [0-9smh\s]+|Thinking Process)([\s\S]*?)(?=\n\n(?:[A-Z#*`\->]|Thought for|Worked for)|$)/gim, (m, title, thought) => {
+  html = html.replace(/(?:^|\n)(Thought for [0-9smh\s]+|Worked for [0-9smh\s]+|Thinking Process)([\s\S]*?)(?=\n\n(?:#|```|>|Thought for|Worked for)|$)/gim, (m, title, thought) => {
     return `\n<details class="thought-card" style="margin: 8px 0;">
       <summary class="thought-summary">
         <span class="thought-title">🧠 ${title.trim()}</span>
@@ -745,7 +745,7 @@ function scrollToBottom() {
 
 function handleScrollDetection() {
   if (!elements.chatViewport) return;
-  const isNearBottom = elements.chatViewport.scrollHeight - elements.chatViewport.scrollTop - elements.chatViewport.clientHeight < 80;
+  const isNearBottom = elements.chatViewport.scrollHeight - elements.chatViewport.scrollTop - elements.chatViewport.clientHeight < 250;
   state.userScrolledUp = !isNearBottom;
   if (elements.scrollToBottomBtn) {
     elements.scrollToBottomBtn.style.display = state.userScrolledUp ? 'flex' : 'none';

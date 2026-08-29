@@ -101,13 +101,46 @@ setInterval(() => {
 }, 2500);
 
 cdpBridge.onNewMessage = (msg) => {
-  const last = STATE.messages[STATE.messages.length - 1];
-  if (!last || last.text !== msg.text || last.from !== msg.from) {
-    STATE.messages.push(msg);
-    if (STATE.messages.length > 300) STATE.messages.shift();
+  if (!msg || !msg.text) return;
+
+  // Filter out pure animation strings or empty whitespace
+  const cleanText = msg.text.replace(/Waiting for user input[\.]*/gi, '').trim();
+  if (!cleanText) return;
+
+  const normalizedMsg = { ...msg, text: cleanText };
+
+  if (STATE.messages.length === 0) {
+    STATE.messages.push(normalizedMsg);
     saveState();
-    broadcast('message_new', msg);
+    broadcast('message_new', normalizedMsg);
+    return;
   }
+
+  const lastIndex = STATE.messages.length - 1;
+  const last = STATE.messages[lastIndex];
+
+  // If exact identical text and author, ignore duplicate
+  if (last.text === normalizedMsg.text && last.from === normalizedMsg.from) {
+    return;
+  }
+
+  // If same sender is agent and this is an in-flight extension / refinement of the last message
+  if (last.from === normalizedMsg.from && normalizedMsg.from === 'agent') {
+    if (normalizedMsg.text.startsWith(last.text) || last.text.startsWith(normalizedMsg.text) ||
+        Math.abs(normalizedMsg.text.length - last.text.length) < 60) {
+      STATE.messages[lastIndex].text = normalizedMsg.text;
+      STATE.messages[lastIndex].timestamp = normalizedMsg.timestamp;
+      saveState();
+      broadcast('message_update', { index: lastIndex, message: STATE.messages[lastIndex] });
+      return;
+    }
+  }
+
+  // Brand new message
+  STATE.messages.push(normalizedMsg);
+  if (STATE.messages.length > 300) STATE.messages.shift();
+  saveState();
+  broadcast('message_new', normalizedMsg);
 };
 
 cdpBridge.onAgentState = (state) => {
