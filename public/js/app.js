@@ -522,8 +522,8 @@ function renderMarkdown(text) {
     return `\n<details class="thought-card">\n<summary class="thought-summary">\n<span class="thought-title">${title.trim()}</span>\n<span class="thought-chevron">▾ Details</span>\n</summary>\n<div class="thought-content">Reasoning & tool execution completed</div>\n</details>\n\n`;
   });
 
-  // Ran / Terminal Command Output
-  html = html.replace(/(?:^|\n)(Ran\s*\n[\s\S]*?)(?=(?:\n\n(?:🔍|###?|Step|Here|1\.|Component|Everything|All|Checked|[A-Z][a-zA-Z0-9\s,.'"-]{15,}))|$)/gim, (m, cmdBlock) => {
+  // Enclose entire Ran / Terminal Command execution block inside single Terminal Card
+  html = html.replace(/(?:^|\n)(Ran\s*\n[\s\S]*?)(?=\n\n(?:Here |Step |Check |I |The |All |Note:|###?|🔍|\$\$|[A-Z][a-z0-9\s,.]{20,}))/gim, (m, cmdBlock) => {
     return `\n<div class="terminal-card">\n<pre class="terminal-body"><code>${cmdBlock.trim()}</code></pre>\n</div>\n\n`;
   });
 
