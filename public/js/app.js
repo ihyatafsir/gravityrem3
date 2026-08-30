@@ -613,6 +613,66 @@ function renderMarkdown(text) {
     }
   }
 
+  // Layer 1.5: Box all terminal commands, tool executions, and step traces into containers
+  const actionStepPattern = /^(?:Explored|Exploring|Edited|Analyzed|Analyzing|Ran|Run|Running|Built|Building|Created|Updated|Deleted|Viewed)\b/i;
+  const cliPrefixPattern = /^(?:(?:\$|~|\/home|\/tmp|\/var)\/|[a-z0-9_\-\.]+@|>>>|\$\s+)/i;
+  const toolCmdPattern = /^(?:git\s+|npm\s+|npx\s+|node\s+|python3?\s+|bash\s+|sh\s+|cat\s+|grep\s+|curl\s+|echo\s+|systemctl\s+|journalctl\s+|ssh\s+|scp\s+|find\s+|sed\s+|awk\s+|chmod\s+|chown\s+|mkdir\s+|touch\s+|rm\s+|cp\s+|mv\s+|lsof\s+|ss\s+|pnpm\s+|yarn\s+)/i;
+  const diffPattern = /^(?:\+{3}|\-{3}|@{2}|\+[0-9]+|\-[0-9]+|\+\s*#|\+\s*[a-zA-Z0-9_\$]|<truncated)/;
+  const statPattern = /^[0-9]+\s+(?:commands|files|tasks|folders|errors|warnings)\b/i;
+
+  const isCommandOrStepLine = (trimmed) => {
+    if (!trimmed) return false;
+    return actionStepPattern.test(trimmed) ||
+           cliPrefixPattern.test(trimmed) ||
+           toolCmdPattern.test(trimmed) ||
+           diffPattern.test(trimmed) ||
+           statPattern.test(trimmed);
+  };
+
+  const preProtected = [];
+  raw = raw.replace(/```[a-zA-Z0-9_-]*\n[\s\S]*?```/g, (m) => {
+    const ph = `__PRE_PROTECTED_${preProtected.length}__`;
+    preProtected.push(m);
+    return ph;
+  });
+
+  const lines = raw.split('\n');
+  const resultLines = [];
+  let inCommandBlock = false;
+  let currentCmdLines = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const trimmed = line.trim();
+
+    if (isCommandOrStepLine(trimmed)) {
+      inCommandBlock = true;
+      currentCmdLines.push(line);
+    } else {
+      if (inCommandBlock) {
+        const nextLine = lines[i + 1] ? lines[i + 1].trim() : '';
+        if (trimmed === '' && nextLine && isCommandOrStepLine(nextLine)) {
+          currentCmdLines.push(line);
+          continue;
+        }
+
+        resultLines.push('```bash\n' + currentCmdLines.join('\n').trim() + '\n```');
+        currentCmdLines = [];
+        inCommandBlock = false;
+      }
+      resultLines.push(line);
+    }
+  }
+
+  if (inCommandBlock && currentCmdLines.length > 0) {
+    resultLines.push('```bash\n' + currentCmdLines.join('\n').trim() + '\n```');
+  }
+
+  raw = resultLines.join('\n');
+  preProtected.forEach((b, idx) => {
+    raw = raw.replace(`__PRE_PROTECTED_${idx}__`, b);
+  });
+
   // 2. Layer 2: Explicit Code Blocks & Tools
   const codeBlocks = [];
   raw = raw.replace(/```([a-zA-Z0-9_-]*)\n([\s\S]*?)```/g, (match, lang, code) => {
