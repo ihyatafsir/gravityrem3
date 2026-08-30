@@ -48,6 +48,12 @@
           </button>
 
           <!-- Model Switcher -->
+          <!-- Planning / Fast Mode Switcher -->
+          <button id="mode-switch-btn" class="header-pill-btn mode-pill fast" title="Switch Mode (Fast ⚡ / Planning 📋)">
+            <span id="current-mode-icon" class="mode-icon">⚡</span>
+            <span id="current-mode-label">Fast</span>
+          </button>
+
           <button id="model-btn" class="header-pill-btn" title="Switch Model">
             <span class="model-tag">AI</span>
             <span id="current-model-label">Gemini 3.7</span>
@@ -229,6 +235,24 @@
       <div class="sheet-header">
         <span class="sheet-title">Select Intelligence Model</span>
         <button class="sheet-close">✕</button>
+      </div>
+      <div class="mode-selector-banner">
+        <div id="mode-card-fast" class="mode-opt-card active" onclick="selectAgentMode('fast')">
+          <div class="mode-opt-icon">⚡</div>
+          <div class="mode-opt-info">
+            <div class="mode-opt-title">Fast Mode</div>
+            <div class="mode-opt-desc">Instant direct execution</div>
+          </div>
+          <div id="mode-dot-fast" class="mode-opt-indicator">●</div>
+        </div>
+        <div id="mode-card-plan" class="mode-opt-card" onclick="selectAgentMode('plan')">
+          <div class="mode-opt-icon">📋</div>
+          <div class="mode-opt-info">
+            <div class="mode-opt-title">Planning Mode</div>
+            <div class="mode-opt-desc">Plan & review before run</div>
+          </div>
+          <div id="mode-dot-plan" class="mode-opt-indicator">○</div>
+        </div>
       </div>
       <div id="model-list" class="model-list">
         <!-- Model items rendered dynamically -->

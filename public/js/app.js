@@ -144,6 +144,9 @@ const elements = {
   stopBtn: document.getElementById('stop-btn'),
   newChatBtn: document.getElementById('new-chat-btn'),
   syncBtn: document.getElementById('sync-btn'),
+  modeSwitchBtn: document.getElementById('mode-switch-btn'),
+  modeLabel: document.getElementById('current-mode-label'),
+  modeIcon: document.getElementById('current-mode-icon'),
   modelBtn: document.getElementById('model-btn'),
   modelLabel: document.getElementById('current-model-label'),
   historyBtn: document.getElementById('history-btn'),
@@ -1605,6 +1608,7 @@ function initEventListeners() {
   if (elements.targetSwitchBtn) elements.targetSwitchBtn.addEventListener('click', toggleTarget);
   if (elements.autoAcceptBtn) elements.autoAcceptBtn.addEventListener('click', toggleAutoAccept);
   if (elements.brandBadge) elements.brandBadge.addEventListener('click', openDrawer);
+  if (elements.modeSwitchBtn) elements.modeSwitchBtn.addEventListener('click', toggleAgentMode);
   if (elements.modelBtn) elements.modelBtn.addEventListener('click', openModelModal);
   if (elements.historyBtn) elements.historyBtn.addEventListener('click', openHistoryModal);
   if (elements.scrollToBottomBtn) elements.scrollToBottomBtn.addEventListener('click', scrollToBottom);
@@ -1725,6 +1729,7 @@ function initEventListeners() {
 // ----------------------------------------------------------------------
 window.addEventListener('DOMContentLoaded', () => {
   initEventListeners();
+  updateModeUI();
   connectWebSocket();
 });
 
