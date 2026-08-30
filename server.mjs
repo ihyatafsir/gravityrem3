@@ -93,7 +93,7 @@ function getSystemStats() {
 
   return {
     cpu: cpuPercent,
-    ram: { usedMb, totalMb, percent: ramPercent },
+    ram: usedMb, ramDetails: { usedMb, totalMb, percent: ramPercent },
     ramMb: usedMb,
     uptimeSec: Math.round(uptime()),
     clients: wss.clients.size,
