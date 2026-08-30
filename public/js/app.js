@@ -566,7 +566,7 @@ function renderMarkdown(text) {
   if (!text) return "";
   let raw = text.trim();
 
-  // 1. Layer 1: Thought Badge & Execution Steps
+  // 1. Layer 1: Thought Badge & Execution Steps (Collapsible Rich Accordion)
   let thoughtHtml = "";
   
   // Format 1: Explicit <thought>...</thought>
@@ -582,31 +582,31 @@ function renderMarkdown(text) {
       const title = thoughtHeaderMatch[1].trim();
       raw = raw.slice(thoughtHeaderMatch[0].length).trim();
 
-      let thoughtBody = "";
-      // Extract thought steps / reasoning lines before primary markdown headings or results
-      const nextSectionRegex = new RegExp("(?:\\n\\n(?=#{1,4}\\s|```|🎯|🚀|🔬|🌊|✅|❌|⚡|🔍|All |Here |Check |Step |Note:|\\$|\\*\\*))");
-      const nextSectionIdx = raw.search(nextSectionRegex);
-      
-      if (nextSectionIdx > 0) {
-        thoughtBody = raw.slice(0, nextSectionIdx).trim();
-        raw = raw.slice(nextSectionIdx).trim();
-      } else if (!raw.startsWith("#") && !raw.startsWith("```") && raw.includes("\n\n")) {
-        const parts = raw.split("\n\n");
-        if (parts.length > 1) {
-          thoughtBody = parts[0].trim();
-          raw = parts.slice(1).join("\n\n").trim();
-        }
+      let thoughtContent = "";
+      // Check if the thought block includes steps or tool execution code blocks before main answer
+      const nextSectionRegex = new RegExp("(?:\\n\\n(?=#{1,4}\\s|🎯|🚀|🔬|🌊|✅|❌|⚡|🔍|All |Here |Check |Step |Note:|\\$|\\*\\*|[A-Z][a-z]+ (?:is|was|has|have|completed|re-exported|downloaded|tested)))");
+      const answerStartIdx = raw.search(nextSectionRegex);
+
+      if (answerStartIdx > 0) {
+        thoughtContent = raw.slice(0, answerStartIdx).trim();
+        raw = raw.slice(answerStartIdx).trim();
+      } else if (raw.startsWith("```") && raw.includes("```\n\n")) {
+        const endBlock = raw.indexOf("```\n\n") + 3;
+        thoughtContent = raw.slice(0, endBlock).trim();
+        raw = raw.slice(endBlock).trim();
       }
 
-      if (!thoughtBody) {
-        thoughtBody = "Agent completed internal reasoning, tool calls, and workspace analysis.";
+      if (!thoughtContent) {
+        thoughtContent = "Completed internal reasoning and workspace analysis.";
       }
 
-      // Format steps cleanly inside thought drawer
-      const formattedThought = thoughtBody
+      // Format thought content nicely (if it contains code blocks or plaintext)
+      let formattedThought = thoughtContent
+        .replace(/```(?:bash|sh)?\n([\s\S]*?)```/g, '<div class="thought-code"><pre><code>$1</code></pre></div>')
         .replace(/&/g, "&amp;")
         .replace(/</g, "&lt;")
         .replace(/>/g, "&gt;")
+        .replace(/&lt;div class="thought-code"&gt;&lt;pre&gt;&lt;code&gt;([\s\S]*?)&lt;\/code&gt;&lt;\/pre&gt;&lt;\/div&gt;/g, '<div class="thought-code"><pre><code>$1</code></pre></div>')
         .replace(/\n/g, "<br>");
 
       thoughtHtml = `\n<details class="thought-card">\n<summary class="thought-summary">\n<span class="thought-title"><svg class="thought-icon" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a8 8 0 0 0-8 8c0 3 2 5.5 4 7v2a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2v-2c2-1.5 4-4 4-7a8 8 0 0 0-8-8z"/><path d="M9 21h6"/></svg>${title}</span>\n<span class="thought-chevron">▾</span>\n</summary>\n<div class="thought-content">${formattedThought}</div>\n</details>\n\n`;
