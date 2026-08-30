@@ -775,6 +775,8 @@ class CdpBridge {
 
   startHealthChecks() {
     if (this.healthTimer) clearInterval(this.healthTimer);
+    this.lastBusyState = false;
+
     this.healthTimer = setInterval(async () => {
       if (!this.connected || this.isHealthCheckInProgress) return;
       this.isHealthCheckInProgress = true;
@@ -782,16 +784,23 @@ class CdpBridge {
       try {
         const busyRes = await this.evaluate(EXPRESSION_CHECK_BUSY);
         const isBusy = !!(busyRes && busyRes.busy);
+        
         if (this.onAgentState) {
           this.onAgentState({ busy: isBusy });
         }
+
+        // Auto-sync full transcript whenever agent transitions from busy -> idle
+        if (this.lastBusyState && !isBusy) {
+          await this.syncAllMessages();
+        }
+        this.lastBusyState = isBusy;
 
         const actionsRes = await this.evaluate(EXPRESSION_DETECT_ACTIONS);
         if (actionsRes && this.onActionDetected) {
           this.onActionDetected(actionsRes);
         }
 
-        // Robust last-message live sync
+        // Live stream sync for active/last message
         const lastMsg = await this.evaluate(EXPRESSION_CHECK_LAST_MESSAGE);
         if (lastMsg && lastMsg.text && this.onNewMessage) {
           this.onNewMessage(lastMsg);
@@ -800,7 +809,7 @@ class CdpBridge {
       } finally {
         this.isHealthCheckInProgress = false;
       }
-    }, 2000);
+    }, 1500);
   }
 
   async clickButtonByText(text) {

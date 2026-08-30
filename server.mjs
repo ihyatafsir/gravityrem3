@@ -351,7 +351,7 @@ app.post('/api/plan/reject', async (req, res) => {
 });
 
 // 3. Force Sync Full Chat from IDE DOM
-app.post('/api/sync-chat', async (req, res) => {
+app.post(['/api/sync-chat', '/api/chat/sync', '/api/sync'], async (req, res) => {
   const domRes = await cdpBridge.evaluate(`(() => {
     const articles = Array.from(document.querySelectorAll('div[role="article"]'));
     return articles.map(a => {
