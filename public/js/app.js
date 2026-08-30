@@ -306,6 +306,12 @@ function updateTelemetryUI(stats) {
     elements.cdpStatusStat.style.color = stats.cdpConnected ? 'var(--emerald-glow)' : 'var(--rose-glow)';
   }
 
+  if (stats.activeModel && stats.activeModel !== state.activeModel) {
+    state.activeModel = stats.activeModel;
+    localStorage.setItem('ag_active_model', stats.activeModel);
+    if (elements.modelLabel) elements.modelLabel.textContent = formatShortModelName(stats.activeModel);
+  }
+
   if (stats.currentTarget) {
     state.activeTarget = stats.currentTarget;
     if (elements.targetLabel) {
@@ -1452,8 +1458,8 @@ function generateModelFamiliesHtml() {
       if (!isTierActive && isFamilyActive && normActive.includes(normalizeModelStr(tier.name))) {
         isTierActive = true;
       }
-      // If none explicitly matched and this is the active family default to High
-      if (!isTierActive && isFamilyActive && !fam.tiers.some(t => normActive.includes(normalizeModelStr(t.name))) && tier.name === "High") {
+      // Exact match or contains check
+      if (!isTierActive && isFamilyActive && normActive.includes(normalizeModelStr(tier.name))) {
         isTierActive = true;
       }
 

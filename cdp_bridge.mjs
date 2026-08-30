@@ -568,6 +568,7 @@ class CdpBridge {
       // Strictly lock to port 9222 (VM Local Antigravity IDE)
       CDP_PORT = 9222;
       this.currentTarget = 'vm';
+    this.activeModelName = 'Gemini 3.7 Flash Medium';
 
       if (!targets || !targets.length) {
         this.scheduleReconnect();
@@ -815,6 +816,18 @@ class CdpBridge {
 
       try {
         const busyRes = await this.evaluate(EXPRESSION_CHECK_BUSY);
+        const curModelRes = await this.evaluate(`(() => {
+          const modelBtn = document.querySelector('button[aria-label*="Select model"]');
+          if (modelBtn) {
+            const aria = modelBtn.getAttribute('aria-label') || '';
+            if (aria.includes('current:')) return aria.split('current:')[1].trim();
+            if (modelBtn.innerText) return modelBtn.innerText.trim();
+          }
+          return '';
+        })()`);
+        if (curModelRes && typeof curModelRes === 'string' && curModelRes.length > 0) {
+          this.activeModelName = curModelRes;
+        }
         const isBusy = !!(busyRes && busyRes.busy);
         
         if (this.onAgentState) {

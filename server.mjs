@@ -99,6 +99,7 @@ function getSystemStats() {
     clients: wss.clients.size,
     cdpConnected: cdpBridge.connected,
     currentTarget: cdpBridge.currentTarget,
+    activeModel: cdpBridge.activeModelName || 'Gemini 3.7 Flash Medium',
     agentBusy: STATE.agent.busy,
     autoAccept: STATE.actions.autoAccept
   };
@@ -568,6 +569,7 @@ app.get('/api/antigravity/features', async (req, res) => {
     ok: true,
     sessionId: activeSessionId,
     currentTarget: cdpBridge.currentTarget,
+    activeModel: cdpBridge.activeModelName || 'Gemini 3.7 Flash Medium',
     actions: STATE.actions,
     plan: currentPlan,
     walkthrough: currentWalkthrough,
