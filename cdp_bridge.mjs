@@ -200,7 +200,7 @@ const EXPRESSION_SELECT_MODEL_BY_NAME = (modelName) => `(async () => {
   if (!modelBtn) return { ok: false, error: 'model_btn_not_found' };
 
   modelBtn.click();
-  await new Promise(r => setTimeout(r, 450));
+  await new Promise(r => setTimeout(r, 350));
 
   const items = Array.from(document.querySelectorAll('div[role="menuitem"], div[role="option"], [role="menuitem"]'));
   const match = items.find(el => {
@@ -220,11 +220,24 @@ const EXPRESSION_SELECT_MODEL_BY_NAME = (modelName) => `(async () => {
   });
 
   if (match) {
-    match.click();
+    try {
+      match.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true }));
+      match.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+      match.click();
+      match.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true }));
+      match.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, cancelable: true }));
+    } catch(e) {
+      match.click();
+    }
+    await new Promise(r => setTimeout(r, 200));
     return { ok: true, selected: modelName };
   }
 
-  document.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, key: 'Escape', code: 'Escape' }));
+  // Close with Escape if not found
+  try {
+    document.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, key: 'Escape', code: 'Escape' }));
+  } catch(e) {}
+
   return { ok: false, error: 'menu_item_not_found' };
 })()`;
 
@@ -806,6 +819,31 @@ class CdpBridge {
         }
         this.lastBusyState = isBusy;
 
+        // Auto-dispatch queued prompts in IDE if agent is not busy
+        if (!isBusy) {
+          await this.evaluate(`(() => {
+            const sendNowButtons = Array.from(document.querySelectorAll('button[aria-label="Send Now"], button:not([disabled])')).filter(b => {
+              const aria = b.getAttribute('aria-label') || '';
+              const text = b.innerText || '';
+              return aria === 'Send Now' || text.trim() === 'Send Now';
+            });
+            if (sendNowButtons.length > 0) {
+              const btn = sendNowButtons[0];
+              try {
+                btn.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }));
+                btn.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+                btn.click();
+                btn.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+                btn.dispatchEvent(new PointerEvent('pointerup', { bubbles: true }));
+              } catch(e) {
+                btn.click();
+              }
+              return { ok: true, dispatched: true };
+            }
+            return { ok: false };
+          })()`);
+        }
+
         const actionsRes = await this.evaluate(EXPRESSION_DETECT_ACTIONS);
         if (actionsRes && this.onActionDetected) {
           this.onActionDetected(actionsRes);
@@ -820,7 +858,7 @@ class CdpBridge {
       } finally {
         this.isHealthCheckInProgress = false;
       }
-    }, 1500);
+    }, 1200);
   }
 
   async clickButtonByText(text) {
