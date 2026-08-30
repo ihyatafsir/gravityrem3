@@ -509,16 +509,18 @@ function updateAgentUI() {
     if (!workingBanner) {
       workingBanner = document.createElement('div');
       workingBanner.id = 'agent-working-banner';
-      workingBanner.className = 'thought-card';
       workingBanner.innerHTML = `
         <div style="display:flex; align-items:center; gap:7px;">
           <div class="neutral-pulse-dot"></div>
           <span style="font-size:11.5px; color:#94a3b8; font-weight:500;">Agent is thinking...</span>
         </div>
       `;
-      elements.chatViewport.appendChild(workingBanner);
-      if (!state.userScrolledUp) scrollToBottom();
     }
+    // Always keep workingBanner as the last child at the absolute bottom
+    if (elements.chatViewport && elements.chatViewport.lastElementChild !== workingBanner) {
+      elements.chatViewport.appendChild(workingBanner);
+    }
+    if (!state.userScrolledUp) scrollToBottom();
   } else {
     if (workingBanner) workingBanner.remove();
   }
@@ -851,6 +853,21 @@ function renderMessages() {
 
   for (const msg of visibleMessages) {
     appendMessageUI(msg, false);
+  }
+
+  if (state.agent.busy) {
+    let workingBanner = document.getElementById('agent-working-banner');
+    if (!workingBanner) {
+      workingBanner = document.createElement('div');
+      workingBanner.id = 'agent-working-banner';
+      workingBanner.innerHTML = `
+        <div style="display:flex; align-items:center; gap:7px;">
+          <div class="neutral-pulse-dot"></div>
+          <span style="font-size:11.5px; color:#94a3b8; font-weight:500;">Agent is thinking...</span>
+        </div>
+      `;
+    }
+    elements.chatViewport.appendChild(workingBanner);
   }
 
   if (!state.userScrolledUp) {
