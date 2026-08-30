@@ -295,9 +295,23 @@ app.post('/api/auto-accept/toggle', async (req, res) => {
 
 // 2. Send Message
 app.post('/api/messages', async (req, res) => {
-  const { text } = req.body;
-  if (!text || !text.trim()) {
-    return res.status(400).json({ ok: false, error: 'empty_text' });
+  let { text, model, mode } = req.body;
+  if (!text || typeof text !== 'string') {
+    return res.status(400).json({ ok: false, error: 'invalid_message' });
+  }
+
+  const rawUserText = text.trim();
+  let promptToInject = rawUserText;
+
+  const activeModelStr = (model || STATE.activeModel || '').toLowerCase();
+  if (activeModelStr.includes('high') && !promptToInject.includes('[Thinking Effort: High]')) {
+    promptToInject = `[Thinking Effort: High (1.00)] ${promptToInject}`;
+  } else if (activeModelStr.includes('low') && !promptToInject.includes('[Thinking Effort: Low]')) {
+    promptToInject = `[Thinking Effort: Low (0.10)] ${promptToInject}`;
+  }
+
+  if (mode === 'plan' && !promptToInject.startsWith('/plan') && !promptToInject.includes('[Planning Mode]')) {
+    promptToInject = `[Planning Mode Enabled] ${promptToInject}`;
   }
 
   const userMsg = {
@@ -314,7 +328,7 @@ app.post('/api/messages', async (req, res) => {
   STATE.agent.state = 'thinking';
   broadcast('agent_state', STATE.agent);
 
-  const injectRes = await cdpBridge.injectMessage(userMsg.text);
+  const injectRes = await cdpBridge.injectMessage(promptToInject);
   if (injectRes && injectRes.ok) {
     return res.json({ ok: true, result: injectRes });
   } else {

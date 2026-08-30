@@ -924,7 +924,11 @@ async function postMessageDirect(text) {
     const res = await fetch('/api/messages', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text })
+      body: JSON.stringify({
+        text,
+        model: state.activeModel,
+        mode: state.agentMode
+      })
     });
     const data = await res.json();
     if (!data.ok) {
