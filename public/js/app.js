@@ -1451,18 +1451,38 @@ function renderThemesTab() {
     { id: 'sunset', name: 'Sunset Amber', desc: 'Warm titanium golden amber aura', color: '#f59e0b' }
   ];
 
+  const banner = document.getElementById('lisanBanners');
+  const isBannerVisible = banner ? (!banner.classList.contains('hidden') && !banner.classList.contains('collapsed')) : (localStorage.getItem('ag_lisan_collapsed') !== 'true');
+
   let html = '<div style="display:flex; flex-direction:column; gap:6px;">';
+  
+  // Lisan Banner Toggle in Drawer
+  html += `
+    <div class="theme-card" onclick="toggleLisanBanner()" style="display:flex; align-items:center; justify-content:space-between; padding:10px 14px; margin-bottom:8px; border:1px solid ${isBannerVisible ? 'rgba(51,255,51,0.3)' : 'var(--border)'}; background: ${isBannerVisible ? 'rgba(51,255,51,0.06)' : 'rgba(255,255,255,0.02)'}; border-radius:10px; cursor:pointer;">
+      <div style="display:flex; align-items:center; gap:10px;">
+        <div style="width:10px; height:10px; border-radius:50%; background:#33ff33; box-shadow:0 0 8px #33ff33;"></div>
+        <div>
+          <div style="font-size:12.5px; font-weight:600; color:var(--text-primary);">لِسَان العَرَب Stream Banner</div>
+          <div style="font-size:10.5px; color:var(--text-tertiary);">Tap banner in header to hide anytime</div>
+        </div>
+      </div>
+      <span style="font-size:11px; font-weight:700; color:${isBannerVisible ? '#33ff33' : 'var(--text-tertiary)'}; background:rgba(0,0,0,0.4); padding:3px 8px; border-radius:6px; border:1px solid var(--border);">
+        ${isBannerVisible ? 'Visible ●' : 'Hidden ○'}
+      </span>
+    </div>
+  `;
+
   themes.forEach(th => {
     html += `
-      <div class="model-item ${state.currentTheme === th.id ? 'active' : ''}" onclick="selectTheme('${th.id}')">
-        <div>
-          <div style="font-weight:700; font-size:12.5px; color:#fff; display:flex; align-items:center;">
-            <span class="theme-color-dot" style="background:${th.color};"></span>
-            <span>${th.name}</span>
+      <div class="theme-card ${state.activeTheme === th.id ? 'active' : ''}" onclick="selectTheme('${th.id}')" style="display:flex; align-items:center; justify-content:space-between; padding:10px 14px;">
+        <div style="display:flex; align-items:center; gap:10px;">
+          <div style="width:10px; height:10px; border-radius:50%; background:${th.color}; box-shadow:0 0 8px ${th.color};"></div>
+          <div>
+            <div style="font-size:12.5px; font-weight:600; color:var(--text-primary);">${th.name}</div>
+            <div style="font-size:10.5px; color:var(--text-tertiary);">${th.desc}</div>
           </div>
-          <div style="font-size:11px; color:var(--text-secondary); margin-top:2px;">${th.desc}</div>
         </div>
-        <button class="chip-btn ${state.currentTheme === th.id ? 'highlight' : ''}" style="font-size:10.5px; height:22px; padding:2px 8px;">${state.currentTheme === th.id ? 'Active' : 'Apply'}</button>
+        ${state.activeTheme === th.id ? '<span style="color:var(--emerald-glow); font-size:13px; font-weight:700;">Active</span>' : ''}
       </div>
     `;
   });
@@ -2178,13 +2198,62 @@ async function fetchLisanData() {
   }
 }
 
-// Auto-start Lisan stream
+// Auto-start Lisan stream & Click to Dismiss
+
+window.dismissLisanBanner = function() {
+  haptic(25);
+  const banner = document.getElementById('lisanBanners');
+  if (banner) {
+    banner.classList.add('collapsed');
+    banner.classList.add('hidden');
+    localStorage.setItem('ag_lisan_collapsed', 'true');
+  }
+};
+
+window.toggleLisanBanner = function() {
+  haptic(25);
+  const banner = document.getElementById('lisanBanners');
+  if (!banner) return;
+  const isHidden = banner.classList.contains('hidden') || banner.classList.contains('collapsed');
+  if (isHidden) {
+    banner.classList.remove('hidden');
+    banner.classList.remove('collapsed');
+    localStorage.setItem('ag_lisan_collapsed', 'false');
+    if (!isLisanInitialized) {
+      initLisanBanner();
+    }
+  } else {
+    banner.classList.add('hidden');
+    banner.classList.add('collapsed');
+    localStorage.setItem('ag_lisan_collapsed', 'true');
+  }
+  if (state.drawerActiveTab === 'themes') {
+    renderThemesTab();
+  }
+};
+
+function setupLisanBannerEvents() {
+  const banner = document.getElementById('lisanBanners');
+  if (banner) {
+    banner.onclick = () => {
+      window.dismissLisanBanner();
+    };
+    if (localStorage.getItem('ag_lisan_collapsed') === 'true') {
+      banner.classList.add('hidden');
+      banner.classList.add('collapsed');
+    }
+  }
+}
+
+
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', () => {
+    setupLisanBannerEvents();
     fetchLisanData();
     setInterval(fetchLisanData, 60000);
   });
 } else {
+  setupLisanBannerEvents();
   fetchLisanData();
   setInterval(fetchLisanData, 60000);
 }
