@@ -574,7 +574,7 @@ function renderMarkdown(text) {
   if (thoughtTagMatch) {
     const thoughtContent = thoughtTagMatch[1].trim();
     raw = raw.replace(thoughtTagMatch[0], "").trim();
-    thoughtHtml = `\n<details class="thought-card">\n<summary class="thought-summary">\n<span class="thought-title"><svg class="thought-icon" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a8 8 0 0 0-8 8c0 3 2 5.5 4 7v2a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2v-2c2-1.5 4-4 4-7a8 8 0 0 0-8-8z"/><path d="M9 21h6"/></svg>Thought Process</span>\n<span class="thought-chevron">▾</span>\n</summary>\n<div class="thought-content">${thoughtContent.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")}</div>\n</details>\n\n`;
+    thoughtHtml = `\n<details class="thought-card">\n<summary class="thought-summary">\n<span class="thought-title">Thought Process</span>\n<span class="thought-chevron">▾</span>\n</summary>\n<div class="thought-content">${thoughtContent.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")}</div>\n</details>\n\n`;
   } else {
     // Format 2: Thought for Xs / Worked for Xs
     const thoughtHeaderMatch = raw.match(/^(Thought for [0-9smh\s]+|Worked for [0-9smh\s]+|Thinking Process:?)/i);
@@ -609,7 +609,7 @@ function renderMarkdown(text) {
         .replace(/&lt;div class="thought-code"&gt;&lt;pre&gt;&lt;code&gt;([\s\S]*?)&lt;\/code&gt;&lt;\/pre&gt;&lt;\/div&gt;/g, '<div class="thought-code"><pre><code>$1</code></pre></div>')
         .replace(/\n/g, "<br>");
 
-      thoughtHtml = `\n<details class="thought-card">\n<summary class="thought-summary">\n<span class="thought-title"><svg class="thought-icon" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a8 8 0 0 0-8 8c0 3 2 5.5 4 7v2a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2v-2c2-1.5 4-4 4-7a8 8 0 0 0-8-8z"/><path d="M9 21h6"/></svg>${title}</span>\n<span class="thought-chevron">▾</span>\n</summary>\n<div class="thought-content">${formattedThought}</div>\n</details>\n\n`;
+      thoughtHtml = `\n<details class="thought-card">\n<summary class="thought-summary">\n<span class="thought-title">${title}</span>\n<span class="thought-chevron">▾</span>\n</summary>\n<div class="thought-content">${formattedThought}</div>\n</details>\n\n`;
     }
   }
 
