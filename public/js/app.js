@@ -293,8 +293,10 @@ function updateStatus(text, type) {
 function updateTelemetryUI(stats) {
   if (!stats) return;
   state.stats = stats;
-  if (elements.cpuStat) elements.cpuStat.textContent = `${stats.cpu}%`;
-  if (elements.ramStat && stats.ram) elements.ramStat.textContent = `${stats.ram.usedMb}MB`;
+  if (elements.cpuStat) elements.cpuStat.textContent = `${stats.cpu || 0}%`;
+  
+  const ramMb = stats.ramMb || (stats.ram && stats.ram.usedMb) || (typeof stats.ram === 'number' ? stats.ram : 0);
+  if (elements.ramStat) elements.ramStat.textContent = `${ramMb}MB`;
   
   if (elements.cdpStatusStat) {
     elements.cdpStatusStat.textContent = stats.cdpConnected ? 'ONLINE' : 'STANDBY';
@@ -309,20 +311,6 @@ function updateTelemetryUI(stats) {
     const dot = elements.targetSwitchBtn ? elements.targetSwitchBtn.querySelector('.indicator-dot') : null;
     if (dot) {
       dot.className = `indicator-dot ${stats.currentTarget}`;
-    }
-  }
-
-  if (stats.autoAccept) {
-    state.actions.autoAccept = stats.autoAccept;
-    updateAutoAcceptButtonUI(stats.autoAccept);
-  }
-
-  if (stats.agentBusy !== undefined) {
-    const wasBusy = state.agent.busy;
-    state.agent.busy = stats.agentBusy;
-    updateAgentUI();
-    if (wasBusy && !state.agent.busy && state.messageQueue.length > 0) {
-      dispatchQueuedMessage();
     }
   }
 }

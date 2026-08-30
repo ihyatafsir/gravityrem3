@@ -94,6 +94,7 @@ function getSystemStats() {
   return {
     cpu: cpuPercent,
     ram: { usedMb, totalMb, percent: ramPercent },
+    ramMb: usedMb,
     uptimeSec: Math.round(uptime()),
     clients: wss.clients.size,
     cdpConnected: cdpBridge.connected,
@@ -102,7 +103,6 @@ function getSystemStats() {
     autoAccept: STATE.actions.autoAccept
   };
 }
-
 setInterval(() => {
   if (wss.clients.size > 0) {
     broadcast('telemetry_tick', getSystemStats());
@@ -225,6 +225,18 @@ cdpBridge.onActionDetected = (actions) => {
 // 0. Target Switcher
 app.get('/api/target', (req, res) => {
   res.json({ ok: true, target: cdpBridge.currentTarget });
+});
+
+app.post('/api/target/switch', async (req, res) => {
+  const target = req.body?.target || req.body?.name || (cdpBridge.currentTarget === 'vm' ? 'host' : 'vm');
+  if (target !== 'host' && target !== 'vm') {
+    return res.status(400).json({ ok: false, error: 'invalid_target' });
+  }
+  const ok = await cdpBridge.switchTarget(target);
+  STATE.currentTarget = target;
+  saveState();
+  broadcast('telemetry_tick', getSystemStats());
+  res.json({ ok: true, target });
 });
 
 app.post('/api/target', async (req, res) => {
@@ -518,7 +530,7 @@ app.get('/api/screenshot', async (req, res) => {
     res.setHeader('Content-Type', 'image/jpeg');
     return res.send(imgBuffer);
   }
-  res.json({ ok: true, data: b64 });
+  res.json({ ok: true, data: b64, image: b64 });
 });
 
 // 9. Active Daemons & Background Tasks
