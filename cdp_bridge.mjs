@@ -577,6 +577,7 @@ class CdpBridge {
       this.ws.on('open', async () => {
         this.connected = true;
         log(`✅ Connected to Antigravity IDE [${this.currentTarget.toUpperCase()}] via CDP (Port ${CDP_PORT})!`);
+        setTimeout(() => this.syncAllMessages(), 400);
         if (this.reconnectTimer) {
           clearTimeout(this.reconnectTimer);
           this.reconnectTimer = null;

@@ -365,64 +365,11 @@ app.post('/api/plan/reject', async (req, res) => {
 
 // 3. Force Sync Full Chat from IDE DOM
 app.post(['/api/sync-chat', '/api/chat/sync', '/api/sync'], async (req, res) => {
-  const domRes = await cdpBridge.evaluate(`(() => {
-    const articles = Array.from(document.querySelectorAll('div[role="article"]'));
-    return articles.map(a => {
-      const label = a.getAttribute('aria-label') || '';
-      const isUser = label.includes('User');
-      const isAgent = label.includes('Agent') || label.includes('response') || !isUser;
-      
-      let cleanText = '';
-      if (isUser) {
-        let rawUserText = a.innerText ? a.innerText.trim() : '';
-        const lines = rawUserText.split('\\n');
-        if (lines.length > 1 && /^\\d{1,2}:\\d{2}\\s*(AM|PM)?$/i.test(lines[lines.length - 1].trim())) {
-          rawUserText = lines.slice(0, -1).join('\\n').trim();
-        }
-        cleanText = rawUserText;
-      } else {
-        const textNodes = Array.from(a.querySelectorAll('.leading-relaxed.select-text, .rendered-markdown, .prose'));
-        const toolNodes = Array.from(a.querySelectorAll('div[class*=\"run-command\"], div[class*=\"group/run-command\"]'));
-        
-        cleanText = textNodes.map(t => t.innerText.trim()).filter(Boolean).join('\\n\\n');
-        if (cleanText.startsWith('Worked for ') || cleanText.startsWith('Thought for ')) {
-          const parts = cleanText.split('\\n\\n');
-          if (parts.length > 1) cleanText = parts.slice(1).join('\\n\\n');
-        }
-        if (!cleanText && toolNodes.length > 0) {
-          const cmdPreview = toolNodes[0].innerText.trim().slice(0, 200);
-          cleanText = '> ⚡ Running Tool:\\n\`\`\`bash\\n' + cmdPreview + '\\n\`\`\`';
-        }
-        if (!cleanText && a.innerText) {
-          let fallback = a.innerText.trim();
-          if (fallback.startsWith('Thought for ') || fallback.startsWith('Worked for ')) {
-            const parts = fallback.split('\\n\\n');
-            if (parts.length > 1) fallback = parts.slice(1).join('\\n\\n');
-          }
-          cleanText = fallback;
-        }
-      }
-
-      return {
-        from: isAgent ? 'agent' : 'user',
-        text: cleanText,
-        timestamp: new Date().toISOString()
-      };
-    }).filter(m => m.text.length > 0);
-  })()`);
-
-  if (domRes && Array.isArray(domRes)) {
-    STATE.messages = domRes;
-    saveState();
-    broadcast('init_state', {
-      messages: STATE.messages,
-      agent: STATE.agent,
-      actions: STATE.actions,
-      stats: getSystemStats()
-    });
-    return res.json({ ok: true, count: STATE.messages.length });
+  const messages = await cdpBridge.syncAllMessages();
+  if (messages && messages.length > 0) {
+    return res.json({ ok: true, count: messages.length, messages });
   }
-  res.json({ ok: false, error: 'sync_failed' });
+  res.json({ ok: true, count: STATE.messages.length, messages: STATE.messages });
 });
 
 // 4. Stop
