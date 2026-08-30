@@ -619,6 +619,46 @@ app.get('/api/knowledge/:id', async (req, res) => {
   }
 });
 
+// 10b. Lisan al-Arab API
+let _lisanData = null;
+const DEFAULT_LISAN_SENTENCES = [
+  "بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ",
+  "اقْرَأْ بِاسْمِ رَبِّكَ الَّذِي خَلَقَ",
+  "خَلَقَ الْإِنسَانَ مِنْ عَلَقٍ",
+  "اقْرَأْ وَرَبُّكَ الْأَكْرَمُ",
+  "الَّذِي عَلَّمَ بِالْقَلَمِ",
+  "عَلَّمَ الْإِنسَانَ مَا لَمْ يَعْلَمْ",
+  "الَّذِي يَرَ الْيَقِينُ مِفَتَاحُ الْفَرَجِ",
+  "الْعِلْمُ نُورٌ وَالْجَهْلُ ظَلَامٌ",
+  "كُنْ مَعَ اللَّهِ تَرَ اللَّهَ مَعَكَ",
+  "الصَّبْرُ مِفْتَاحُ الْفَرَجِ"
+];
+
+app.get('/api/lisan', (req, res) => {
+  try {
+    const lisanPath = join(__dirname, 'data', 'lisanclean.json');
+    if (fs.existsSync(lisanPath)) {
+      if (!_lisanData) {
+        const raw = JSON.parse(fs.readFileSync(lisanPath, 'utf-8'));
+        _lisanData = Object.keys(raw);
+      }
+      const roots = _lisanData;
+      if (roots && roots.length > 5) {
+        const sentences = [];
+        for (let i = 0; i < 50; i++) {
+          const start = Math.floor(Math.random() * (roots.length - 4));
+          const count = 3 + Math.floor(Math.random() * 3);
+          sentences.push(roots.slice(start, start + count).join(' '));
+        }
+        return res.json(sentences);
+      }
+    }
+  } catch (e) {
+    console.error('Lisan API error:', e.message);
+  }
+  res.json(DEFAULT_LISAN_SENTENCES);
+});
+
 // 11. Stats, Status, History, Upload
 app.get('/api/stats', (req, res) => res.json({ ok: true, stats: getSystemStats() }));
 app.get('/api/state', (req, res) => {

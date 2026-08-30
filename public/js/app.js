@@ -1966,3 +1966,225 @@ window.selectAgentMode = function(mode) {
   window.updateModeUI();
 };
 
+
+
+// ======================================================================
+// لِسَان العَرَب - Lisan al-Arab Streaming Banner Engine
+// ======================================================================
+const LISAN_CONSONANT_MAP = {
+  'ا': 'ā', 'أ': 'a', 'إ': 'i', 'آ': 'ā',
+  'ب': 'b', 'ت': 't', 'ث': 'th',
+  'ج': 'j', 'ح': 'ḥ', 'خ': 'kh',
+  'د': 'd', 'ذ': 'dh',
+  'ر': 'r', 'ز': 'z',
+  'س': 's', 'ش': 'sh',
+  'ص': 'ṣ', 'ض': 'ḍ',
+  'ط': 'ṭ', 'ظ': 'ẓ',
+  'ع': 'ʿ', 'غ': 'gh',
+  'ف': 'f', 'ق': 'q',
+  'ك': 'k', 'ل': 'l',
+  'م': 'm', 'ن': 'n',
+  'ه': 'h', 'و': 'w',
+  'ي': 'y', 'ى': 'ā',
+  'ء': 'ʾ', 'ة': 'h',
+  'ـ': ''
+};
+
+const LISAN_DIACRITIC_MAP = {
+  'َ': 'a',   // Fatha
+  'ِ': 'i',   // Kasra
+  'ُ': 'u',   // Damma
+  'ً': 'an',  // Fathatan
+  'ٍ': 'in',  // Kasratan
+  'ٌ': 'un',  // Dammatan
+  'ْ': '',    // Sukun
+  'ّ': ''     // Shadda
+};
+
+function isArabicDiacritic(char) {
+  return 'ًٌٍَُِّْ'.includes(char);
+}
+
+function transliterateArabicWord(word) {
+  let result = '';
+  const chars = [...word];
+
+  for (let i = 0; i < chars.length; i++) {
+    const char = chars[i];
+    if (isArabicDiacritic(char)) continue;
+
+    if (',.،؟:;'.includes(char)) {
+      result += char;
+      continue;
+    }
+
+    let latin = LISAN_CONSONANT_MAP[char];
+    if (latin === undefined) {
+      result += char;
+      continue;
+    }
+
+    let j = i + 1;
+    while (j < chars.length && isArabicDiacritic(chars[j])) {
+      const diac = chars[j];
+      if (diac === 'ّ') {
+        latin = latin + latin;
+      } else if (LISAN_DIACRITIC_MAP[diac]) {
+        latin = latin + LISAN_DIACRITIC_MAP[diac];
+      }
+      j++;
+    }
+
+    result += latin;
+  }
+  return [...result].reverse().join('');
+}
+
+let lisanSentences = [
+  "بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ",
+  "اقْرَأْ بِاسْمِ رَبِّكَ الَّذِي خَلَقَ",
+  "خَلَقَ الْإِنسَانَ مِنْ عَلَقٍ",
+  "اقْرَأْ وَرَبُّكَ الْأَكْرَمُ",
+  "الَّذِي عَلَّمَ بِالْقَلَمِ",
+  "عَلَّمَ الْإِنسَانَ مَا لَمْ يَعْلَمْ"
+];
+
+let currentLisanIndex = 0;
+let isLisanInitialized = false;
+let lisanCurrentScroll = 0;
+const LISAN_SCROLL_SPEED = 32;
+let lisanLastTime = performance.now();
+
+function createLisanWordBlock(arabic, latin) {
+  const block = document.createElement('div');
+  block.className = 'word-block';
+  block.dataset.type = 'word';
+
+  const arSpan = document.createElement('div');
+  arSpan.className = 'word-arabic';
+  arSpan.textContent = arabic;
+
+  const laSpan = document.createElement('div');
+  laSpan.className = 'word-latin';
+  laSpan.textContent = latin;
+
+  block.appendChild(arSpan);
+  block.appendChild(laSpan);
+  return block;
+}
+
+function createLisanSeparator() {
+  const sep = document.createElement('div');
+  sep.className = 'lisan-separator';
+  sep.dataset.type = 'separator';
+  sep.textContent = '◆';
+  return sep;
+}
+
+function createLisanSentenceFragment(sentence) {
+  const words = sentence.split(' ').reverse();
+  const fragment = document.createDocumentFragment();
+  fragment.appendChild(createLisanSeparator());
+
+  words.forEach(word => {
+    if (!word.trim()) return;
+    const latin = transliterateArabicWord(word);
+    fragment.appendChild(createLisanWordBlock(word, latin));
+  });
+  return fragment;
+}
+
+function prependNextLisanSentence(marquee) {
+  if (!lisanSentences.length || !marquee) return;
+  const sentence = lisanSentences[currentLisanIndex];
+  const fragment = createLisanSentenceFragment(sentence);
+
+  const oldRect = marquee.getBoundingClientRect();
+  const oldWidth = oldRect.width;
+
+  if (marquee.firstChild) {
+    marquee.insertBefore(fragment, marquee.firstChild);
+  } else {
+    marquee.appendChild(fragment);
+  }
+
+  const newRect = marquee.getBoundingClientRect();
+  const addedWidth = newRect.width - oldWidth;
+  lisanCurrentScroll -= addedWidth;
+  currentLisanIndex = (currentLisanIndex + 1) % lisanSentences.length;
+}
+
+function animateLisanStream(currentTime) {
+  const marquee = document.getElementById('lisan-marquee');
+  if (!marquee) return;
+
+  const deltaTime = (currentTime - lisanLastTime) / 1000;
+  const dt = Math.min(deltaTime, 0.1);
+  lisanLastTime = currentTime;
+
+  lisanCurrentScroll += LISAN_SCROLL_SPEED * dt;
+
+  if (lisanCurrentScroll > -200) {
+    prependNextLisanSentence(marquee);
+  }
+
+  const parent = marquee.parentElement;
+  if (parent) {
+    const viewportWidth = parent.offsetWidth;
+    const lastChild = marquee.lastElementChild;
+    if (lastChild) {
+      const visualLeft = lastChild.offsetLeft + lisanCurrentScroll;
+      if (visualLeft > viewportWidth) {
+        marquee.removeChild(lastChild);
+      }
+    }
+  }
+
+  marquee.style.transform = `translate3d(${lisanCurrentScroll}px, 0, 0)`;
+  requestAnimationFrame(animateLisanStream);
+}
+
+function initLisanBanner() {
+  const marquee = document.getElementById('lisan-marquee');
+  if (!marquee || isLisanInitialized) return;
+  isLisanInitialized = true;
+  marquee.style.direction = 'ltr';
+
+  while (marquee.getBoundingClientRect().width < window.innerWidth * 2) {
+    prependNextLisanSentence(marquee);
+  }
+
+  const width = marquee.getBoundingClientRect().width;
+  lisanCurrentScroll = -width + window.innerWidth;
+  lisanLastTime = performance.now();
+  requestAnimationFrame(animateLisanStream);
+}
+
+async function fetchLisanData() {
+  try {
+    const res = await fetch('/api/lisan');
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data) && data.length > 0) {
+        lisanSentences = data;
+        currentLisanIndex = 0;
+        if (!isLisanInitialized) {
+          initLisanBanner();
+        }
+      }
+    }
+  } catch (e) {
+    console.error('Failed to fetch Lisan data:', e);
+  }
+}
+
+// Auto-start Lisan stream
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', () => {
+    fetchLisanData();
+    setInterval(fetchLisanData, 60000);
+  });
+} else {
+  fetchLisanData();
+  setInterval(fetchLisanData, 60000);
+}

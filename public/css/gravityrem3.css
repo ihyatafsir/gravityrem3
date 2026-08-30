@@ -2432,3 +2432,68 @@ pre, pre code, .terminal-body, .terminal-body code, .code-container pre, .code-c
 .thought-code code {
   color: #cbd5e1 !important;
 }
+
+
+/* ======================================================================
+   ◆ LISAN AL-ARAB SCROLLING BANNER (Matrix / Emerald Edition)
+   ====================================================================== */
+.lisan-banners {
+  background: #06090e;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  height: 36px;
+  overflow: hidden;
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  z-index: 5;
+}
+
+.lisan-marquee-container {
+  display: flex;
+  flex-direction: row;
+  direction: ltr;
+  position: absolute;
+  white-space: nowrap;
+  height: 100%;
+  align-items: center;
+  will-change: transform;
+}
+
+.word-block {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  margin: 0 6px;
+  flex-shrink: 0;
+  padding-bottom: 1px;
+}
+
+.word-arabic {
+  font-size: 15px;
+  font-family: 'Amiri', 'Traditional Arabic', serif;
+  color: #33ff33;
+  text-shadow: 0 0 10px rgba(51, 255, 51, 0.7);
+  line-height: 1.1;
+  margin-bottom: 1px;
+}
+
+.word-latin {
+  font-size: 9px;
+  font-family: 'Consolas', 'JetBrains Mono', monospace;
+  color: #22cc22;
+  text-shadow: 0 0 6px rgba(34, 204, 34, 0.6);
+  letter-spacing: 0.5px;
+  line-height: 1;
+  direction: ltr;
+}
+
+.lisan-separator {
+  color: rgba(50, 255, 100, 0.6);
+  text-shadow: 0 0 8px rgba(50, 255, 100, 0.8);
+  font-size: 9px;
+  margin: 0 12px;
+  display: flex;
+  align-items: center;
+}
