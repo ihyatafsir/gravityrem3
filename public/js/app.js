@@ -1,5 +1,5 @@
 /**
- * GRAVITYREM3 — Minimalist Professional Client Application Logic (v3.3)
+ * GRAVITYR3 — Minimalist Professional Client Application Logic (v3.3)
  */
 
 const state = {

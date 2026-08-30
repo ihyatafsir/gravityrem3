@@ -722,7 +722,7 @@ wss.on('connection', async (ws) => {
 async function main() {
   await loadState();
   server.listen(PORT, '0.0.0.0', () => {
-    console.log(`🚀 GRAVITYREM3 RUNNING ON PORT ${PORT} [TARGET: ${cdpBridge.currentTarget.toUpperCase()}]`);
+    console.log(`🚀 GRAVITYR3 RUNNING ON PORT ${PORT} [TARGET: ${cdpBridge.currentTarget.toUpperCase()}]`);
     cdpBridge.connect();
   });
 }
