@@ -21,39 +21,51 @@ const EXPRESSION_CHECK_LAST_MESSAGE = `(() => {
   let thought = '';
   const thoughtBtn = a.querySelector('button[class*="tabular-nums"]');
   if (thoughtBtn && thoughtBtn.innerText) {
-    const tText = thoughtBtn.innerText.trim();
-    if (/^(?:Thought for|Worked for|Thinking)/i.test(tText)) {
-      thought = tText;
-    }
+    thought = thoughtBtn.innerText.trim();
   }
 
   let cmd = '';
-  const toolStepNodes = Array.from(a.querySelectorAll('div.w-full.my-0.5, button[class*="tabular-nums"], div[class*="run-command"], div[class*="group/run-command"], div[class*="terminal"], div[class*="tool-invocation"]'));
-  const toolSteps = toolStepNodes
-    .map(tn => tn.innerText.trim())
-    .filter(t => t && !/^(?:Thought for|Worked for|Thinking)/i.test(t));
-
-  if (toolSteps.length > 0) {
-    // Deduplicate consecutive steps
-    const deduped = toolSteps.filter((s, i, arr) => i === 0 || s !== arr[i-1]);
-    cmd = String.fromCharCode(96,96,96) + "bash\n" + deduped.join("\n") + "\n" + String.fromCharCode(96,96,96);
+  const toolNodes = Array.from(a.querySelectorAll('div[class*="run-command"], div[class*="group/run-command"], div[class*="terminal"], div[class*="tool-invocation"]'));
+  if (toolNodes.length > 0) {
+    const toolText = toolNodes.map(tn => tn.innerText.trim()).filter(Boolean).join('\n');
+    if (toolText) {
+      cmd = String.fromCharCode(96,96,96) + "bash\n" + toolText + "\n" + String.fromCharCode(96,96,96);
+    }
   }
 
   let answer = '';
-  const textNodes = Array.from(a.querySelectorAll('div.leading-relaxed.select-text, div.rendered-markdown, div.prose'))
-    .filter(el => !el.closest('button[class*="tabular-nums"], div.w-full.my-0.5, div[class*="run-command"], div[class*="terminal"]'));
+  const textNodes = Array.from(a.querySelectorAll('.rendered-markdown, .prose, .leading-relaxed.select-text'))
+    .filter(el => !el.closest('div[class*="run-command"], div[class*="group/run-command"], div[class*="terminal"], div[class*="tool-invocation"]'));
 
   if (textNodes.length > 0) {
     answer = textNodes.map(t => t.innerText.trim()).filter(Boolean).join('\n\n');
+  } else if (!cmd && a.innerText) {
+    let rawA = a.innerText.trim();
+    const cmdRegex = new RegExp("^(?:Ran|Run|Running|python3|bash|sh|cat|grep|curl|echo|~/|/home/|\\$|>>>)", "i");
+      if (cmdRegex.test(rawA)) {
+      cmd = String.fromCharCode(96,96,96) + "bash\n" + rawA.replace(/^(?:Ran|Run|Running)\s*\n?/i, '') + "\n" + String.fromCharCode(96,96,96);
+    } else {
+      answer = rawA;
+    }
   }
 
-  let fullText = '';
-  if (thought) fullText += thought + '\n\n';
-  if (cmd) fullText += cmd + '\n\n';
-  if (answer) fullText += answer;
-  fullText = fullText.trim();
+  if (thought && answer.startsWith(thought)) {
+    answer = answer.slice(thought.length).trim();
+  }
 
-  return fullText || null;
+  let parts = [];
+  if (thought) parts.push(thought);
+  if (cmd) parts.push(cmd);
+  if (answer) parts.push(answer);
+
+  const label = (a.getAttribute('aria-label') || '').toLowerCase();
+  const isUser = label.includes('user') || a.classList.contains('user-message');
+
+  return {
+    from: isUser ? 'user' : 'agent',
+    text: parts.join('\n\n').trim(),
+    timestamp: new Date().toISOString()
+  };
 })()`;
 
 const EXPRESSION_CHECK_BUSY = `(() => {
@@ -265,57 +277,70 @@ const EXPRESSION_TOGGLE_AUTO_ACCEPT = `(() => {
 
 const EXPRESSION_SCRAPE_ALL_MESSAGES = `(() => {
   const articles = Array.from(document.querySelectorAll('div[role="article"]'));
-  return articles.map((a, index) => {
-    const isUser = a.querySelector('.bg-accent, .bg-primary, [data-author="user"]') !== null ||
-                   a.classList.contains('user-article') ||
-                   (a.getAttribute('aria-label') || '').toLowerCase().includes('user') ||
-                   (a.className && typeof a.className === 'string' && a.className.includes('items-end'));
-
-    if (isUser) {
-      const text = a.innerText.trim();
-      return { from: 'user', text, index };
-    }
+  const messages = [];
+  
+  for (const a of articles) {
+    const label = (a.getAttribute('aria-label') || '').toLowerCase();
+    const isUser = label.includes('user') || a.classList.contains('user-message');
 
     let thought = '';
-    const thoughtBtn = a.querySelector('button[class*="tabular-nums"]');
-    if (thoughtBtn && thoughtBtn.innerText) {
-      const tText = thoughtBtn.innerText.trim();
-      if (/^(?:Thought for|Worked for|Thinking)/i.test(tText)) {
-        thought = tText;
+    const thoughtBtn = Array.from(a.querySelectorAll('button')).find(b => /(?:Thought|Worked)\s+for/i.test(b.innerText || ''));
+    if (thoughtBtn) {
+      const tTitle = thoughtBtn.innerText.trim();
+      const parent = thoughtBtn.parentElement;
+      let tSteps = '';
+      if (parent) {
+        let pText = parent.innerText ? parent.innerText.trim() : '';
+        if (pText.startsWith(tTitle)) pText = pText.slice(tTitle.length).trim();
+        if (pText) tSteps = pText;
       }
+      thought = tTitle + (tSteps ? ('\n' + tSteps) : '');
     }
 
     let cmd = '';
-    const toolStepNodes = Array.from(a.querySelectorAll('div.w-full.my-0.5, button[class*="tabular-nums"], div[class*="run-command"], div[class*="group/run-command"], div[class*="terminal"], div[class*="tool-invocation"]'));
-    const toolSteps = toolStepNodes
-      .map(tn => tn.innerText.trim())
-      .filter(t => t && !/^(?:Thought for|Worked for|Thinking)/i.test(t));
-
-    if (toolSteps.length > 0) {
-      const deduped = toolSteps.filter((s, i, arr) => i === 0 || s !== arr[i-1]);
-      cmd = String.fromCharCode(96,96,96) + "bash\n" + deduped.join("\n") + "\n" + String.fromCharCode(96,96,96);
+    const toolNodes = Array.from(a.querySelectorAll('div[class*="run-command"], div[class*="group/run-command"], div[class*="terminal"], div[class*="tool-invocation"]'));
+    if (toolNodes.length > 0) {
+      const toolText = toolNodes.map(tn => tn.innerText.trim()).filter(Boolean).join('\n');
+      if (toolText) {
+        cmd = String.fromCharCode(96,96,96) + "bash\n" + toolText + "\n" + String.fromCharCode(96,96,96);
+      }
     }
 
     let answer = '';
-    const textNodes = Array.from(a.querySelectorAll('div.leading-relaxed.select-text, div.rendered-markdown, div.prose'))
-      .filter(el => !el.closest('button[class*="tabular-nums"], div.w-full.my-0.5, div[class*="run-command"], div[class*="terminal"]'));
+    const textNodes = Array.from(a.querySelectorAll('.rendered-markdown, .prose, .leading-relaxed.select-text'))
+      .filter(el => !el.closest('div[class*="run-command"], div[class*="group/run-command"], div[class*="terminal"], div[class*="tool-invocation"]'));
 
     if (textNodes.length > 0) {
       answer = textNodes.map(t => t.innerText.trim()).filter(Boolean).join('\n\n');
+    } else if (!cmd && a.innerText) {
+      let rawA = a.innerText.trim();
+      const cmdRegex = new RegExp("^(?:Ran|Run|Running|python3|bash|sh|cat|grep|curl|echo|~/|/home/|\\$|>>>)", "i");
+      if (cmdRegex.test(rawA)) {
+        cmd = String.fromCharCode(96,96,96) + "bash\n" + rawA.replace(/^(?:Ran|Run|Running)\s*\n?/i, '') + "\n" + String.fromCharCode(96,96,96);
+      } else {
+        answer = rawA;
+      }
     }
 
-    let fullText = '';
-    if (thought) fullText += thought + '\n\n';
-    if (cmd) fullText += cmd + '\n\n';
-    if (answer) fullText += answer;
-    fullText = fullText.trim();
+    if (thought && answer.startsWith(thought.split('\n')[0])) {
+      answer = answer.slice(thought.split('\n')[0].length).trim();
+    }
 
-    return {
-      from: 'agent',
-      text: fullText || '(Thinking...)',
-      index
-    };
-  }).filter(m => m.text && m.text !== '(Thinking...)');
+    let parts = [];
+    if (thought) parts.push(thought);
+    if (cmd) parts.push(cmd);
+    if (answer) parts.push(answer);
+
+    const fullText = parts.join('\n\n').trim();
+    if (fullText && fullText.length > 0) {
+      messages.push({
+        from: isUser ? 'user' : 'agent',
+        text: fullText,
+        timestamp: new Date().toISOString()
+      });
+    }
+  }
+  return { ok: true, messages };
 })()`;
 
 const EXPRESSION_INJECT_MESSAGE = (message) => `(async () => {
