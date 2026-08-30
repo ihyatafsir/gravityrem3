@@ -585,44 +585,48 @@ function renderMarkdown(text) {
       raw = raw.slice(thoughtHeaderMatch[0].length).trim();
 
       let thoughtContent = "";
-      // Check if the thought block includes steps or tool execution code blocks before main answer
-      const nextSectionRegex = new RegExp("(?:\\n\\n(?=#{1,4}\\s|🎯|🚀|🔬|🌊|✅|❌|⚡|🔍|All |Here |Check |Step |Note:|\\$|\\*\\*|[A-Z][a-z]+ (?:is|was|has|have|completed|re-exported|downloaded|tested)))");
-      const answerStartIdx = raw.search(nextSectionRegex);
-
-      if (answerStartIdx > 0) {
-        thoughtContent = raw.slice(0, answerStartIdx).trim();
-        raw = raw.slice(answerStartIdx).trim();
-      } else if (raw.startsWith("```") && raw.includes("```\n\n")) {
-        const endBlock = raw.indexOf("```\n\n") + 3;
-        thoughtContent = raw.slice(0, endBlock).trim();
-        raw = raw.slice(endBlock).trim();
+      if (raw.startsWith("```")) {
+        thoughtContent = "";
+      } else {
+        const nextBlockIdx = raw.search(/\n\n(?=```|#{1,4}\s|🎯|🚀|🔬|🌊|✅|❌|⚡|🔍|All |Here |Check |Step |Note:|\$|\*\*|[A-Z][a-z]+ (?:is|was|has|have|completed|re-exported|downloaded|tested))/);
+        if (nextBlockIdx > 0) {
+          thoughtContent = raw.slice(0, nextBlockIdx).trim();
+          raw = raw.slice(nextBlockIdx).trim();
+        } else if (!raw.includes("```")) {
+          if (raw.length < 200 && !raw.includes("\n\n")) {
+            thoughtContent = raw;
+            raw = "";
+          }
+        }
       }
 
-      if (!thoughtContent) {
-        thoughtContent = "Completed internal reasoning and workspace analysis.";
-      }
-
-      // Format thought content nicely (if it contains code blocks or plaintext)
-      let formattedThought = thoughtContent
-        .replace(/```(?:bash|sh)?\n([\s\S]*?)```/g, '<div class="thought-code"><pre><code>$1</code></pre></div>')
+      let formattedThought = (thoughtContent || "Completed internal reasoning and workspace analysis.")
         .replace(/&/g, "&amp;")
         .replace(/</g, "&lt;")
         .replace(/>/g, "&gt;")
-        .replace(/&lt;div class="thought-code"&gt;&lt;pre&gt;&lt;code&gt;([\s\S]*?)&lt;\/code&gt;&lt;\/pre&gt;&lt;\/div&gt;/g, '<div class="thought-code"><pre><code>$1</code></pre></div>')
         .replace(/\n/g, "<br>");
 
       thoughtHtml = `\n<details class="thought-card">\n<summary class="thought-summary">\n<span class="thought-title">${title}</span>\n<span class="thought-chevron">▾</span>\n</summary>\n<div class="thought-content">${formattedThought}</div>\n</details>\n\n`;
     }
   }
 
-  // Layer 1.5: Box all terminal commands, tool executions, and step traces into containers
-  const actionStepPattern = /^(?:Explored|Exploring|Edited|Analyzed|Analyzing|Ran|Run|Running|Built|Building|Created|Updated|Deleted|Viewed)\b/i;
+  // Pre-protect existing explicit code blocks
+  const preProtected = [];
+  raw = raw.replace(/```[a-zA-Z0-9_-]*\n[\s\S]*?```/g, (m) => {
+    const ph = `__PRE_PROTECTED_${preProtected.length}__`;
+    preProtected.push(m);
+    return ph;
+  });
+
+  // Layer 1.5: Box remaining un-fenced terminal commands & tool traces
+  const actionStepPattern = /^(?:Explored|Exploring|Edited|Editing|Analyzed|Analyzing|Ran|Run|Running|Built|Building|Created|Updated|Deleted|Viewed|Viewing)\b/i;
   const cliPrefixPattern = /^(?:(?:\$|~|\/home|\/tmp|\/var)\/|[a-z0-9_\-\.]+@|>>>|\$\s+)/i;
-  const toolCmdPattern = /^(?:git\s+|npm\s+|npx\s+|node\s+|python3?\s+|bash\s+|sh\s+|cat\s+|grep\s+|curl\s+|echo\s+|systemctl\s+|journalctl\s+|ssh\s+|scp\s+|find\s+|sed\s+|awk\s+|chmod\s+|chown\s+|mkdir\s+|touch\s+|rm\s+|cp\s+|mv\s+|lsof\s+|ss\s+|pnpm\s+|yarn\s+)/i;
+  const toolCmdPattern = /^(?:git|npm|npx|node|python3?|bash|sh|cat|grep|curl|echo|systemctl|journalctl|ssh|scp|find|sed|awk|chmod|chown|mkdir|touch|rm|cp|mv|lsof|ss|pnpm|yarn|ip|ls|ps|df|free|top|kill|docker|tar|ping|sudo|which|whereis|env|export|source|wget)\s+/i;
   const diffPattern = /^(?:\+{3}|\-{3}|@{2}|\+[0-9]+|\-[0-9]+|\+\s*#|\+\s*[a-zA-Z0-9_\$]|<truncated)/;
   const statPattern = /^[0-9]+\s+(?:commands|files|tasks|folders|errors|warnings)\b/i;
+  const proseBoundaryPattern = /^(?:#{1,4}\s|[-*]\s|\d+\.\s|>\s|\*\*[^*]+\*\*\s*:)/;
 
-  const isCommandOrStepLine = (trimmed) => {
+  const isCommandStart = (trimmed) => {
     if (!trimmed) return false;
     return actionStepPattern.test(trimmed) ||
            cliPrefixPattern.test(trimmed) ||
@@ -630,13 +634,6 @@ function renderMarkdown(text) {
            diffPattern.test(trimmed) ||
            statPattern.test(trimmed);
   };
-
-  const preProtected = [];
-  raw = raw.replace(/```[a-zA-Z0-9_-]*\n[\s\S]*?```/g, (m) => {
-    const ph = `__PRE_PROTECTED_${preProtected.length}__`;
-    preProtected.push(m);
-    return ph;
-  });
 
   const lines = raw.split('\n');
   const resultLines = [];
@@ -647,22 +644,22 @@ function renderMarkdown(text) {
     const line = lines[i];
     const trimmed = line.trim();
 
-    if (isCommandOrStepLine(trimmed)) {
-      inCommandBlock = true;
-      currentCmdLines.push(line);
+    if (!inCommandBlock) {
+      if (isCommandStart(trimmed)) {
+        inCommandBlock = true;
+        currentCmdLines.push(line);
+      } else {
+        resultLines.push(line);
+      }
     } else {
-      if (inCommandBlock) {
-        const nextLine = lines[i + 1] ? lines[i + 1].trim() : '';
-        if (trimmed === '' && nextLine && isCommandOrStepLine(nextLine)) {
-          currentCmdLines.push(line);
-          continue;
-        }
-
+      if (proseBoundaryPattern.test(trimmed) || (trimmed === '' && lines[i+1] && proseBoundaryPattern.test(lines[i+1].trim()))) {
         resultLines.push('```bash\n' + currentCmdLines.join('\n').trim() + '\n```');
         currentCmdLines = [];
         inCommandBlock = false;
+        resultLines.push(line);
+      } else {
+        currentCmdLines.push(line);
       }
-      resultLines.push(line);
     }
   }
 

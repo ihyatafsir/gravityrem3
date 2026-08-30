@@ -18,39 +18,63 @@ const EXPRESSION_CHECK_LAST_MESSAGE = `(() => {
   if (!articles.length) return null;
   const a = articles[articles.length - 1];
 
-  let thought = '';
-  const thoughtBtn = a.querySelector('button[class*="tabular-nums"]');
-  if (thoughtBtn && thoughtBtn.innerText) {
-    thought = thoughtBtn.innerText.trim();
+  const isUser = a.querySelector('.bg-accent, .bg-primary, [data-author="user"]') !== null ||
+                 a.classList.contains('user-article') ||
+                 (a.getAttribute('aria-label') || '').toLowerCase().includes('user') ||
+                 (a.className && typeof a.className === 'string' && a.className.includes('items-end'));
+
+  if (isUser) {
+    return {
+      from: 'user',
+      text: a.innerText.trim(),
+      timestamp: new Date().toISOString()
+    };
   }
 
-  let cmd = '';
-  const toolNodes = Array.from(a.querySelectorAll('div[class*="run-command"], div[class*="group/run-command"], div[class*="terminal"], div[class*="tool-invocation"]'));
-  if (toolNodes.length > 0) {
-    const toolText = toolNodes.map(tn => tn.innerText.trim()).filter(Boolean).join('\n');
-    if (toolText) {
-      cmd = String.fromCharCode(96,96,96) + "bash\n" + toolText + "\n" + String.fromCharCode(96,96,96);
+  let thought = '';
+  const thoughtBtn = Array.from(a.querySelectorAll('button[class*="tabular-nums"], button')).find(b => {
+    const t = (b.innerText || '').trim();
+    return /^(?:Thought|Worked)\s+for/i.test(t);
+  });
+  if (thoughtBtn) {
+    const tText = thoughtBtn.innerText.trim();
+    const parent = thoughtBtn.parentElement;
+    let tSteps = '';
+    if (parent) {
+      let pText = parent.innerText ? parent.innerText.trim() : '';
+      if (pText.startsWith(tText)) pText = pText.slice(tText.length).trim();
+      if (pText) tSteps = pText;
     }
+    thought = tText + (tSteps ? ('\n' + tSteps) : '');
+  }
+
+  const toolLines = [];
+  const stepButtons = Array.from(a.querySelectorAll('button[class*="tabular-nums"], button')).filter(b => {
+    const t = (b.innerText || '').trim();
+    return /^(?:Ran|Running|Explored|Exploring|Edited|Editing|Viewed|Viewing|Created|Deleted|Built|Building)\b/i.test(t);
+  });
+  stepButtons.forEach(b => {
+    const t = b.innerText.trim();
+    if (t && !toolLines.includes(t)) toolLines.push(t);
+  });
+
+  const commandPres = Array.from(a.querySelectorAll('pre, div[class*="run-command"], div[class*="group/run-command"], div[class*="terminal"]'));
+  commandPres.forEach(cp => {
+    const t = cp.innerText.trim();
+    if (t && !toolLines.includes(t)) toolLines.push(t);
+  });
+
+  let cmd = '';
+  if (toolLines.length > 0) {
+    cmd = String.fromCharCode(96,96,96) + "bash\n" + toolLines.join('\n') + "\n" + String.fromCharCode(96,96,96);
   }
 
   let answer = '';
-  const textNodes = Array.from(a.querySelectorAll('.rendered-markdown, .prose, .leading-relaxed.select-text'))
-    .filter(el => !el.closest('div[class*="run-command"], div[class*="group/run-command"], div[class*="terminal"], div[class*="tool-invocation"]'));
+  const proseNodes = Array.from(a.querySelectorAll('div.leading-relaxed.select-text, div.rendered-markdown, div.prose'))
+    .filter(el => !el.closest('button[class*="tabular-nums"], div[class*="group/run-command"], div[class*="terminal"], pre'));
 
-  if (textNodes.length > 0) {
-    answer = textNodes.map(t => t.innerText.trim()).filter(Boolean).join('\n\n');
-  } else if (!cmd && a.innerText) {
-    let rawA = a.innerText.trim();
-    const cmdRegex = new RegExp("^(?:Ran|Run|Running|python3|bash|sh|cat|grep|curl|echo|~/|/home/|\\$|>>>)", "i");
-      if (cmdRegex.test(rawA)) {
-      cmd = String.fromCharCode(96,96,96) + "bash\n" + rawA.replace(/^(?:Ran|Run|Running)\s*\n?/i, '') + "\n" + String.fromCharCode(96,96,96);
-    } else {
-      answer = rawA;
-    }
-  }
-
-  if (thought && answer.startsWith(thought)) {
-    answer = answer.slice(thought.length).trim();
+  if (proseNodes.length > 0) {
+    answer = proseNodes.map(t => t.innerText.trim()).filter(Boolean).join('\n\n');
   }
 
   let parts = [];
@@ -58,11 +82,8 @@ const EXPRESSION_CHECK_LAST_MESSAGE = `(() => {
   if (cmd) parts.push(cmd);
   if (answer) parts.push(answer);
 
-  const label = (a.getAttribute('aria-label') || '').toLowerCase();
-  const isUser = label.includes('user') || a.classList.contains('user-message');
-
   return {
-    from: isUser ? 'user' : 'agent',
+    from: 'agent',
     text: parts.join('\n\n').trim(),
     timestamp: new Date().toISOString()
   };
@@ -280,50 +301,67 @@ const EXPRESSION_SCRAPE_ALL_MESSAGES = `(() => {
   const messages = [];
   
   for (const a of articles) {
-    const label = (a.getAttribute('aria-label') || '').toLowerCase();
-    const isUser = label.includes('user') || a.classList.contains('user-message');
+    const isUser = a.querySelector('.bg-accent, .bg-primary, [data-author="user"]') !== null ||
+                   a.classList.contains('user-article') ||
+                   (a.getAttribute('aria-label') || '').toLowerCase().includes('user') ||
+                   (a.className && typeof a.className === 'string' && a.className.includes('items-end'));
+
+    if (isUser) {
+      const text = a.innerText.trim();
+      if (text) {
+        messages.push({
+          from: 'user',
+          text,
+          timestamp: new Date().toISOString()
+        });
+      }
+      continue;
+    }
 
     let thought = '';
-    const thoughtBtn = Array.from(a.querySelectorAll('button')).find(b => /(?:Thought|Worked)\s+for/i.test(b.innerText || ''));
+    const thoughtBtn = Array.from(a.querySelectorAll('button[class*="tabular-nums"], button')).find(b => {
+      const t = (b.innerText || '').trim();
+      return /^(?:Thought|Worked)\s+for/i.test(t);
+    });
     if (thoughtBtn) {
-      const tTitle = thoughtBtn.innerText.trim();
+      const tText = thoughtBtn.innerText.trim();
       const parent = thoughtBtn.parentElement;
       let tSteps = '';
       if (parent) {
         let pText = parent.innerText ? parent.innerText.trim() : '';
-        if (pText.startsWith(tTitle)) pText = pText.slice(tTitle.length).trim();
+        if (pText.startsWith(tText)) pText = pText.slice(tText.length).trim();
         if (pText) tSteps = pText;
       }
-      thought = tTitle + (tSteps ? ('\n' + tSteps) : '');
+      thought = tText + (tSteps ? ('\n' + tSteps) : '');
     }
 
+    const toolLines = [];
+    const stepButtons = Array.from(a.querySelectorAll('button[class*="tabular-nums"], button')).filter(b => {
+      const t = (b.innerText || '').trim();
+      return /^(?:Ran|Running|Explored|Exploring|Edited|Editing|Viewed|Viewing|Created|Deleted|Built|Building)\b/i.test(t);
+    });
+    stepButtons.forEach(b => {
+      const t = b.innerText.trim();
+      if (t && !toolLines.includes(t)) toolLines.push(t);
+    });
+
+    const commandPres = Array.from(a.querySelectorAll('pre, div[class*="run-command"], div[class*="group/run-command"], div[class*="terminal"]'));
+    commandPres.forEach(cp => {
+      const t = cp.innerText.trim();
+      if (t && !toolLines.includes(t)) toolLines.push(t);
+    });
+
     let cmd = '';
-    const toolNodes = Array.from(a.querySelectorAll('div[class*="run-command"], div[class*="group/run-command"], div[class*="terminal"], div[class*="tool-invocation"]'));
-    if (toolNodes.length > 0) {
-      const toolText = toolNodes.map(tn => tn.innerText.trim()).filter(Boolean).join('\n');
-      if (toolText) {
-        cmd = String.fromCharCode(96,96,96) + "bash\n" + toolText + "\n" + String.fromCharCode(96,96,96);
-      }
+    if (toolLines.length > 0) {
+      cmd = String.fromCharCode(96,96,96) + "bash\n" + toolLines.join('\n') + "\n" + String.fromCharCode(96,96,96);
     }
 
     let answer = '';
-    const textNodes = Array.from(a.querySelectorAll('.rendered-markdown, .prose, .leading-relaxed.select-text'))
-      .filter(el => !el.closest('div[class*="run-command"], div[class*="group/run-command"], div[class*="terminal"], div[class*="tool-invocation"]'));
+    const proseNodes = Array.from(a.querySelectorAll('div.leading-relaxed.select-text, div.rendered-markdown, div.prose'))
+      .filter(el => !el.closest('button[class*="tabular-nums"], div[class*="group/run-command"], div[class*="terminal"], pre'));
 
-    if (textNodes.length > 0) {
-      answer = textNodes.map(t => t.innerText.trim()).filter(Boolean).join('\n\n');
-    } else if (!cmd && a.innerText) {
-      let rawA = a.innerText.trim();
-      const cmdRegex = new RegExp("^(?:Ran|Run|Running|python3|bash|sh|cat|grep|curl|echo|~/|/home/|\\$|>>>)", "i");
-      if (cmdRegex.test(rawA)) {
-        cmd = String.fromCharCode(96,96,96) + "bash\n" + rawA.replace(/^(?:Ran|Run|Running)\s*\n?/i, '') + "\n" + String.fromCharCode(96,96,96);
-      } else {
-        answer = rawA;
-      }
-    }
-
-    if (thought && answer.startsWith(thought.split('\n')[0])) {
-      answer = answer.slice(thought.split('\n')[0].length).trim();
+    if (proseNodes.length > 0) {
+      answer = proseNodes.map(t => t.innerText.trim()).filter(Boolean).join('\n\n');
     }
 
     let parts = [];
@@ -334,7 +372,7 @@ const EXPRESSION_SCRAPE_ALL_MESSAGES = `(() => {
     const fullText = parts.join('\n\n').trim();
     if (fullText && fullText.length > 0) {
       messages.push({
-        from: isUser ? 'user' : 'agent',
+        from: 'agent',
         text: fullText,
         timestamp: new Date().toISOString()
       });
@@ -431,42 +469,55 @@ const EXPRESSION_SETUP_OBSERVER = `(() => {
         if (!articles.length) return;
         
         const a = articles[articles.length - 1];
-        const label = (a.getAttribute('aria-label') || '').toLowerCase();
-        const isAgent = label.includes('Agent') || label.includes('response') || !label.includes('user');
+        const isUser = a.querySelector('.bg-accent, .bg-primary, [data-author="user"]') !== null ||
+                       a.classList.contains('user-article') ||
+                       (a.getAttribute('aria-label') || '').toLowerCase().includes('user') ||
+                       (a.className && typeof a.className === 'string' && a.className.includes('items-end'));
 
         let thought = '';
-        const thoughtBtn = a.querySelector('button[class*="tabular-nums"]');
-        if (thoughtBtn && thoughtBtn.innerText) {
-          thought = thoughtBtn.innerText.trim();
+        const thoughtBtn = Array.from(a.querySelectorAll('button[class*="tabular-nums"], button')).find(b => {
+          const t = (b.innerText || '').trim();
+          return /^(?:Thought|Worked)\s+for/i.test(t);
+        });
+        if (thoughtBtn) {
+          const tText = thoughtBtn.innerText.trim();
+          const parent = thoughtBtn.parentElement;
+          let tSteps = '';
+          if (parent) {
+            let pText = parent.innerText ? parent.innerText.trim() : '';
+            if (pText.startsWith(tText)) pText = pText.slice(tText.length).trim();
+            if (pText) tSteps = pText;
+          }
+          thought = tText + (tSteps ? ('\n' + tSteps) : '');
         }
 
+        const toolLines = [];
+        const stepButtons = Array.from(a.querySelectorAll('button[class*="tabular-nums"], button')).filter(b => {
+          const t = (b.innerText || '').trim();
+          return /^(?:Ran|Running|Explored|Exploring|Edited|Editing|Viewed|Viewing|Created|Deleted|Built|Building)\b/i.test(t);
+        });
+        stepButtons.forEach(b => {
+          const t = b.innerText.trim();
+          if (t && !toolLines.includes(t)) toolLines.push(t);
+        });
+
+        const commandPres = Array.from(a.querySelectorAll('pre, div[class*="run-command"], div[class*="group/run-command"], div[class*="terminal"]'));
+        commandPres.forEach(cp => {
+          const t = cp.innerText.trim();
+          if (t && !toolLines.includes(t)) toolLines.push(t);
+        });
+
         let cmd = '';
-        const toolNodes = Array.from(a.querySelectorAll('div[class*="run-command"], div[class*="group/run-command"], div[class*="terminal"], div[class*="tool-invocation"]'));
-        if (toolNodes.length > 0) {
-          const toolText = toolNodes.map(tn => tn.innerText.trim()).filter(Boolean).join('\n');
-          if (toolText) {
-            cmd = String.fromCharCode(96,96,96) + "bash\n" + toolText + "\n" + String.fromCharCode(96,96,96);
-          }
+        if (toolLines.length > 0) {
+          cmd = String.fromCharCode(96,96,96) + "bash\n" + toolLines.join('\n') + "\n" + String.fromCharCode(96,96,96);
         }
 
         let answer = '';
-        const textNodes = Array.from(a.querySelectorAll('.rendered-markdown, .prose, .leading-relaxed.select-text'))
-          .filter(el => !el.closest('div[class*="run-command"], div[class*="group/run-command"], div[class*="terminal"], div[class*="tool-invocation"]'));
+        const proseNodes = Array.from(a.querySelectorAll('div.leading-relaxed.select-text, div.rendered-markdown, div.prose'))
+          .filter(el => !el.closest('button[class*="tabular-nums"], div[class*="group/run-command"], div[class*="terminal"], pre'));
 
-        if (textNodes.length > 0) {
-          answer = textNodes.map(t => t.innerText.trim()).filter(Boolean).join('\n\n');
-        } else if (!cmd && a.innerText) {
-          let rawA = a.innerText.trim();
-          const cmdRegex = new RegExp("^(?:Ran|Run|Running|python3|bash|sh|cat|grep|curl|echo|~/|/home/|\\$|>>>)", "i");
-      if (cmdRegex.test(rawA)) {
-            cmd = String.fromCharCode(96,96,96) + "bash\n" + rawA.replace(/^(?:Ran|Run|Running)\s*\n?/i, '') + "\n" + String.fromCharCode(96,96,96);
-          } else {
-            answer = rawA;
-          }
-        }
-
-        if (thought && answer.startsWith(thought)) {
-          answer = answer.slice(thought.length).trim();
+        if (proseNodes.length > 0) {
+          answer = proseNodes.map(t => t.innerText.trim()).filter(Boolean).join('\n\n');
         }
 
         let parts = [];
@@ -479,7 +530,7 @@ const EXPRESSION_SETUP_OBSERVER = `(() => {
         if (text && text !== window._agLastEmittedText && text.length > 2) {
           window._agLastEmittedText = text;
           console.log('__AG_MSG__:' + JSON.stringify({
-            from: isAgent ? 'agent' : 'user',
+            from: isUser ? 'user' : 'agent',
             text: text,
             timestamp: new Date().toISOString()
           }));
