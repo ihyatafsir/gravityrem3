@@ -41,7 +41,7 @@ const EXPRESSION_CHECK_LAST_MESSAGE = `(() => {
     answer = textNodes.map(t => t.innerText.trim()).filter(Boolean).join('\n\n');
   } else if (!cmd && a.innerText) {
     let rawA = a.innerText.trim();
-    if (/^(?:Ran|Run|Running|python3|bash|sh|cat|grep|curl|echo|~\/|\/home\/|\$|>>>)\b/i.test(rawA)) {
+    if (/^(?:Ran|Run|Running|python3|bash|sh|cat|grep|curl|echo|~\/|\/home\/|\$|>>>)/i.test(rawA)) {
       cmd = String.fromCharCode(96,96,96) + "bash\n" + rawA.replace(/^(?:Ran|Run|Running)\s*\n?/i, '') + "\n" + String.fromCharCode(96,96,96);
     } else {
       answer = rawA;
@@ -292,7 +292,7 @@ const EXPRESSION_SCRAPE_ALL_MESSAGES = `(() => {
       answer = textNodes.map(t => t.innerText.trim()).filter(Boolean).join('\n\n');
     } else if (!cmd && a.innerText) {
       let rawA = a.innerText.trim();
-      if (/^(?:Ran|Run|Running|python3|bash|sh|cat|grep|curl|echo|~\/|\/home\/|\$|>>>)\b/i.test(rawA)) {
+      if (/^(?:Ran|Run|Running|python3|bash|sh|cat|grep|curl|echo|~\/|\/home\/|\$|>>>)/i.test(rawA)) {
         cmd = String.fromCharCode(96,96,96) + "bash\n" + rawA.replace(/^(?:Ran|Run|Running)\s*\n?/i, '') + "\n" + String.fromCharCode(96,96,96);
       } else {
         answer = rawA;
@@ -434,7 +434,7 @@ const EXPRESSION_SETUP_OBSERVER = `(() => {
           answer = textNodes.map(t => t.innerText.trim()).filter(Boolean).join('\n\n');
         } else if (!cmd && a.innerText) {
           let rawA = a.innerText.trim();
-          if (/^(?:Ran|Run|Running|python3|bash|sh|cat|grep|curl|echo|~\/|\/home\/|\$|>>>)\b/i.test(rawA)) {
+          if (/^(?:Ran|Run|Running|python3|bash|sh|cat|grep|curl|echo|~\/|\/home\/|\$|>>>)/i.test(rawA)) {
             cmd = String.fromCharCode(96,96,96) + "bash\n" + rawA.replace(/^(?:Ran|Run|Running)\s*\n?/i, '') + "\n" + String.fromCharCode(96,96,96);
           } else {
             answer = rawA;
