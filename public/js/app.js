@@ -1812,3 +1812,52 @@ window.addEventListener('focus', () => {
 
 // Periodic background polling fallback (3 seconds)
 setInterval(fetchAppState, 3000);
+
+
+// ----------------------------------------------------------------------
+// Agent Mode Engine (Fast vs Planning) - Clean SVG Icons
+// ----------------------------------------------------------------------
+window.updateModeUI = function() {
+  const mode = state.agentMode || 'fast';
+  const isFast = mode === 'fast';
+
+  if (elements.modeLabel) elements.modeLabel.textContent = isFast ? 'Fast' : 'Plan';
+  if (elements.modeIcon) {
+    elements.modeIcon.innerHTML = isFast
+      ? '<svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>'
+      : '<svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>';
+  }
+
+  if (elements.modeSwitchBtn) {
+    elements.modeSwitchBtn.className = `header-pill-btn mode-pill ${mode}`;
+  }
+
+  const fastCard = document.getElementById('mode-card-fast');
+  const planCard = document.getElementById('mode-card-plan');
+  const fastDot = document.getElementById('mode-dot-fast');
+  const planDot = document.getElementById('mode-dot-plan');
+
+  if (fastCard && planCard) {
+    fastCard.className = `mode-opt-card ${isFast ? 'active' : ''}`;
+    planCard.className = `mode-opt-card ${!isFast ? 'active' : ''}`;
+  }
+  if (fastDot && planDot) {
+    fastDot.textContent = isFast ? '●' : '○';
+    planDot.textContent = !isFast ? '●' : '○';
+  }
+};
+
+window.toggleAgentMode = function() {
+  haptic(25);
+  state.agentMode = state.agentMode === 'fast' ? 'plan' : 'fast';
+  localStorage.setItem('ag_agent_mode', state.agentMode);
+  window.updateModeUI();
+};
+
+window.selectAgentMode = function(mode) {
+  haptic(25);
+  state.agentMode = mode === 'plan' ? 'plan' : 'fast';
+  localStorage.setItem('ag_agent_mode', state.agentMode);
+  window.updateModeUI();
+};
+

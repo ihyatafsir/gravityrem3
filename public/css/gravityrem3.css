@@ -2276,8 +2276,9 @@ pre, pre code, .terminal-body, .terminal-body code, .code-container pre, .code-c
   margin-top: 8px !important;
 }
 
+
 /* ==========================================================================
-   Fast ⚡ vs Planning 📋 Mode Switcher Styling
+   Fast vs Planning Mode Switcher Styling (Minimalist Clean Line SVG)
    ========================================================================== */
 .mode-pill {
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
@@ -2286,7 +2287,7 @@ pre, pre code, .terminal-body, .terminal-body code, .code-container pre, .code-c
   display: inline-flex !important;
   align-items: center !important;
   gap: 4px !important;
-  padding: 3px 9px !important;
+  padding: 3px 8px !important;
   border-radius: 9999px !important;
 }
 
@@ -2294,7 +2295,6 @@ pre, pre code, .terminal-body, .terminal-body code, .code-container pre, .code-c
   background: rgba(52, 211, 153, 0.12) !important;
   border: 1px solid rgba(52, 211, 153, 0.35) !important;
   color: #86efac !important;
-  box-shadow: 0 0 10px rgba(52, 211, 153, 0.15) !important;
 }
 
 .mode-pill.fast:active {
@@ -2306,7 +2306,6 @@ pre, pre code, .terminal-body, .terminal-body code, .code-container pre, .code-c
   background: rgba(56, 189, 248, 0.12) !important;
   border: 1px solid rgba(56, 189, 248, 0.35) !important;
   color: #7dd3fc !important;
-  box-shadow: 0 0 10px rgba(56, 189, 248, 0.15) !important;
 }
 
 .mode-pill.plan:active {
@@ -2315,16 +2314,17 @@ pre, pre code, .terminal-body, .terminal-body code, .code-container pre, .code-c
 }
 
 .mode-icon {
-  font-size: 12px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
   line-height: 1 !important;
 }
 
-/* Mode Banner in Model Modal */
 .mode-selector-banner {
   display: grid !important;
   grid-template-columns: 1fr 1fr !important;
   gap: 8px !important;
-  margin-bottom: 14px !important;
+  margin-bottom: 12px !important;
   padding-bottom: 12px !important;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
 }
@@ -2362,8 +2362,18 @@ pre, pre code, .terminal-body, .terminal-body code, .code-container pre, .code-c
 }
 
 .mode-opt-icon {
-  font-size: 16px !important;
-  line-height: 1 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  color: #94a3b8 !important;
+}
+
+.mode-opt-card[id="mode-card-fast"].active .mode-opt-icon {
+  color: #34d399 !important;
+}
+
+.mode-opt-card[id="mode-card-plan"].active .mode-opt-icon {
+  color: #38bdf8 !important;
 }
 
 .mode-opt-info {
@@ -2386,10 +2396,14 @@ pre, pre code, .terminal-body, .terminal-body code, .code-container pre, .code-c
 }
 
 .mode-opt-indicator {
-  font-size: 12px !important;
+  font-size: 11px !important;
+  color: #64748b !important;
+}
+
+.mode-opt-card[id="mode-card-fast"].active .mode-opt-indicator {
   color: #34d399 !important;
 }
 
-.mode-opt-card[id="mode-card-plan"] .mode-opt-indicator {
+.mode-opt-card[id="mode-card-plan"].active .mode-opt-indicator {
   color: #38bdf8 !important;
 }
