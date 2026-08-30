@@ -56,7 +56,9 @@ const MODEL_FAMILIES = [
     tag: "Flagship",
     desc: "Google flagship hybrid reasoning & rapid coding",
     tiers: [
-      { id: "gemini-3.7-flash-medium", name: "Medium", fullName: "Gemini 3.7 Flash Medium", desc: "Balanced reasoning & speed" }
+      { id: "gemini-3.7-flash-high", name: "High", fullName: "Gemini 3.7 Flash High", desc: "Maximum hybrid reasoning (1.00)" },
+      { id: "gemini-3.7-flash-medium", name: "Medium", fullName: "Gemini 3.7 Flash Medium", desc: "Balanced reasoning & speed (0.50)" },
+      { id: "gemini-3.7-flash-low", name: "Low", fullName: "Gemini 3.7 Flash Low", desc: "Low thinking latency (0.10)" }
     ]
   },
   {
@@ -65,7 +67,9 @@ const MODEL_FAMILIES = [
     tag: "Fast",
     desc: "Balanced rapid agentic workflows & tool execution",
     tiers: [
-      { id: "gemini-3.6-flash-medium", name: "Medium", fullName: "Gemini 3.6 Flash Medium", desc: "Standard medium tier" }
+      { id: "gemini-3.6-flash-high", name: "High", fullName: "Gemini 3.6 Flash High", desc: "High reasoning tier" },
+      { id: "gemini-3.6-flash-medium", name: "Medium", fullName: "Gemini 3.6 Flash Medium", desc: "Standard medium tier" },
+      { id: "gemini-3.6-flash-low", name: "Low", fullName: "Gemini 3.6 Flash Low", desc: "Fast low latency tier" }
     ]
   },
   {
@@ -74,7 +78,9 @@ const MODEL_FAMILIES = [
     tag: "Light",
     desc: "Lightweight high-efficiency model",
     tiers: [
-      { id: "gemini-3.5-flash-medium", name: "Medium", fullName: "Gemini 3.5 Flash Medium", desc: "Balanced medium tier" }
+      { id: "gemini-3.5-flash-high", name: "High", fullName: "Gemini 3.5 Flash High", desc: "High reasoning tier" },
+      { id: "gemini-3.5-flash-medium", name: "Medium", fullName: "Gemini 3.5 Flash Medium", desc: "Balanced medium tier" },
+      { id: "gemini-3.5-flash-low", name: "Low", fullName: "Gemini 3.5 Flash Low", desc: "Low latency tier" }
     ]
   },
   {
@@ -83,6 +89,8 @@ const MODEL_FAMILIES = [
     tag: "Deep",
     desc: "Deep multi-step reasoning & planning",
     tiers: [
+      { id: "gemini-3.1-pro-high", name: "High", fullName: "Gemini 3.1 Pro High", desc: "Deep multi-pass reasoning" },
+      { id: "gemini-3.1-pro-medium", name: "Medium", fullName: "Gemini 3.1 Pro Medium", desc: "Standard deep tier" },
       { id: "gemini-3.1-pro-low", name: "Low", fullName: "Gemini 3.1 Pro Low", desc: "Deep reasoning low latency" }
     ]
   },
@@ -291,12 +299,13 @@ function updateTelemetryUI(stats) {
     elements.cdpStatusStat.style.color = stats.cdpConnected ? 'var(--emerald-glow)' : 'var(--rose-glow)';
   }
 
-  if (stats.activeModel && stats.activeModel !== state.activeModel) {
+  // Keep user chosen model tier intact (do not auto-override with IDE base name)
+  if (!state.activeModel && stats.activeModel) {
     state.activeModel = stats.activeModel;
     localStorage.setItem('ag_active_model', stats.activeModel);
     if (elements.modelLabel) elements.modelLabel.textContent = formatShortModelName(stats.activeModel);
   }
-
+  
   if (stats.currentTarget) {
     state.activeTarget = stats.currentTarget;
     if (elements.targetLabel) {
