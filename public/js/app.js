@@ -566,24 +566,51 @@ function renderMarkdown(text) {
   if (!text) return "";
   let raw = text.trim();
 
-  // 1. Layer 1: Thought Badge (Antigravity IDE format)
+  // 1. Layer 1: Thought Badge & Execution Steps
   let thoughtHtml = "";
-  const thoughtHeaderMatch = raw.match(/^(Thought for [0-9smh\s]+|Worked for [0-9smh\s]+|Thinking Process:?)/i);
-  if (thoughtHeaderMatch) {
-    const title = thoughtHeaderMatch[1].trim();
-    raw = raw.slice(thoughtHeaderMatch[0].length).trim();
+  
+  // Format 1: Explicit <thought>...</thought>
+  const thoughtTagMatch = raw.match(/<thought>([\s\S]*?)<\/thought>/i);
+  if (thoughtTagMatch) {
+    const thoughtContent = thoughtTagMatch[1].trim();
+    raw = raw.replace(thoughtTagMatch[0], "").trim();
+    thoughtHtml = `\n<details class="thought-card">\n<summary class="thought-summary">\n<span class="thought-title"><svg class="thought-icon" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a8 8 0 0 0-8 8c0 3 2 5.5 4 7v2a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2v-2c2-1.5 4-4 4-7a8 8 0 0 0-8-8z"/><path d="M9 21h6"/></svg>Thought Process</span>\n<span class="thought-chevron">▾</span>\n</summary>\n<div class="thought-content">${thoughtContent.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")}</div>\n</details>\n\n`;
+  } else {
+    // Format 2: Thought for Xs / Worked for Xs
+    const thoughtHeaderMatch = raw.match(/^(Thought for [0-9smh\s]+|Worked for [0-9smh\s]+|Thinking Process:?)/i);
+    if (thoughtHeaderMatch) {
+      const title = thoughtHeaderMatch[1].trim();
+      raw = raw.slice(thoughtHeaderMatch[0].length).trim();
 
-    let thoughtBody = "Reasoning and tool execution completed";
-    const nextSectionIdx = raw.search(/(?:\n\n(?:```|###?|Step |Here |Check |I |The |All |Note:|\$\$|[A-Z]))/);
-    if (nextSectionIdx > 0) {
-      const candidateBody = raw.slice(0, nextSectionIdx).trim();
-      if (!candidateBody.startsWith("```") && !candidateBody.startsWith("#")) {
-        thoughtBody = candidateBody;
+      let thoughtBody = "";
+      // Extract thought steps / reasoning lines before primary markdown headings or results
+      const nextSectionRegex = new RegExp("(?:\\n\\n(?=#{1,4}\\s|```|🎯|🚀|🔬|🌊|✅|❌|⚡|🔍|All |Here |Check |Step |Note:|\\$|\\*\\*))");
+      const nextSectionIdx = raw.search(nextSectionRegex);
+      
+      if (nextSectionIdx > 0) {
+        thoughtBody = raw.slice(0, nextSectionIdx).trim();
         raw = raw.slice(nextSectionIdx).trim();
+      } else if (!raw.startsWith("#") && !raw.startsWith("```") && raw.includes("\n\n")) {
+        const parts = raw.split("\n\n");
+        if (parts.length > 1) {
+          thoughtBody = parts[0].trim();
+          raw = parts.slice(1).join("\n\n").trim();
+        }
       }
-    }
 
-    thoughtHtml = `\n<details class="thought-card">\n<summary class="thought-summary">\n<span class="thought-title"><svg class="thought-icon" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a8 8 0 0 0-8 8c0 3 2 5.5 4 7v2a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2v-2c2-1.5 4-4 4-7a8 8 0 0 0-8-8z"/><path d="M9 21h6"/></svg>${title}</span>\n<span class="thought-chevron">▾</span>\n</summary>\n<div class="thought-content">${thoughtBody.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")}</div>\n</details>\n\n`;
+      if (!thoughtBody) {
+        thoughtBody = "Agent completed internal reasoning, tool calls, and workspace analysis.";
+      }
+
+      // Format steps cleanly inside thought drawer
+      const formattedThought = thoughtBody
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/\n/g, "<br>");
+
+      thoughtHtml = `\n<details class="thought-card">\n<summary class="thought-summary">\n<span class="thought-title"><svg class="thought-icon" viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a8 8 0 0 0-8 8c0 3 2 5.5 4 7v2a2 2 0 0 0 2 2h4a2 2 0 0 0 2-2v-2c2-1.5 4-4 4-7a8 8 0 0 0-8-8z"/><path d="M9 21h6"/></svg>${title}</span>\n<span class="thought-chevron">▾</span>\n</summary>\n<div class="thought-content">${formattedThought}</div>\n</details>\n\n`;
+    }
   }
 
   // 2. Layer 2: Explicit Code Blocks & Tools

@@ -284,9 +284,17 @@ const EXPRESSION_SCRAPE_ALL_MESSAGES = `(() => {
     const isUser = label.includes('user') || a.classList.contains('user-message');
 
     let thought = '';
-    const thoughtBtn = a.querySelector('button[class*="tabular-nums"]');
-    if (thoughtBtn && thoughtBtn.innerText) {
-      thought = thoughtBtn.innerText.trim();
+    const thoughtBtn = Array.from(a.querySelectorAll('button')).find(b => /(?:Thought|Worked)\s+for/i.test(b.innerText || ''));
+    if (thoughtBtn) {
+      const tTitle = thoughtBtn.innerText.trim();
+      const parent = thoughtBtn.parentElement;
+      let tSteps = '';
+      if (parent) {
+        let pText = parent.innerText ? parent.innerText.trim() : '';
+        if (pText.startsWith(tTitle)) pText = pText.slice(tTitle.length).trim();
+        if (pText) tSteps = pText;
+      }
+      thought = tTitle + (tSteps ? ('\n' + tSteps) : '');
     }
 
     let cmd = '';
@@ -314,8 +322,8 @@ const EXPRESSION_SCRAPE_ALL_MESSAGES = `(() => {
       }
     }
 
-    if (thought && answer.startsWith(thought)) {
-      answer = answer.slice(thought.length).trim();
+    if (thought && answer.startsWith(thought.split('\n')[0])) {
+      answer = answer.slice(thought.split('\n')[0].length).trim();
     }
 
     let parts = [];
