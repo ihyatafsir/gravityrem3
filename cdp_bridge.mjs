@@ -268,46 +268,51 @@ const EXPRESSION_SCRAPE_ALL_MESSAGES = `(() => {
   for (const a of articles) {
     const label = (a.getAttribute('aria-label') || '').toLowerCase();
     const isUser = label.includes('user') || a.classList.contains('user-message');
-    
-    let text = '';
-    const markdown = a.querySelector('.rendered-markdown, .prose, .leading-relaxed.select-text');
-    if (markdown && markdown.innerText) {
-      text = markdown.innerText.trim();
-    } else {
-      const textNodes = Array.from(a.querySelectorAll('p, span[data-lexical-text="true"], pre'));
-      if (textNodes.length > 0) {
-        text = textNodes.map(t => t.innerText ? t.innerText.trim() : '').filter(Boolean).join('\n\n');
-      } else if (a.innerText) {
-        text = a.innerText.trim();
-      }
-    }
-    
-    if (isUser) {
-      const lines = text.split('\n');
-      if (lines.length > 1 && /^\d{1,2}:\d{2}\s*(AM|PM)?$/i.test(lines[lines.length - 1].trim())) {
-        text = lines.slice(0, -1).join('\n').trim();
-      }
-    } else {
-      // Clean temporary animation text
-      text = text.replace(/Waiting for user input[\.]*/gi, '').trim();
 
-      // Tool Blocks & Commands
-      const toolBlocks = Array.from(a.querySelectorAll('div[class*="group/run-command"], div[class*="run-command"], div[class*="terminal"]'));
-      if (toolBlocks.length > 0) {
-        const toolText = toolBlocks.map(tb => {
-          const cmd = tb.innerText.trim();
-          return cmd ? "\n\`\`\`bash\n" + cmd + "\n\`\`\`\n" : "";
-        }).filter(Boolean).join("\n");
-        if (toolText && !text.includes(toolText.slice(0, 30))) {
-          text = text ? (toolText + "\n\n" + text) : toolText;
-        }
+    let thought = '';
+    const thoughtBtn = a.querySelector('button[class*="tabular-nums"]');
+    if (thoughtBtn && thoughtBtn.innerText) {
+      thought = thoughtBtn.innerText.trim();
+    }
+
+    let cmd = '';
+    const toolNodes = Array.from(a.querySelectorAll('div[class*="run-command"], div[class*="group/run-command"], div[class*="terminal"], div[class*="tool-invocation"]'));
+    if (toolNodes.length > 0) {
+      const toolText = toolNodes.map(tn => tn.innerText.trim()).filter(Boolean).join('\n');
+      if (toolText) {
+        cmd = String.fromCharCode(96,96,96) + "bash\n" + toolText + "\n" + String.fromCharCode(96,96,96);
       }
     }
 
-    if (text && text.length > 0) {
+    let answer = '';
+    const textNodes = Array.from(a.querySelectorAll('.rendered-markdown, .prose, .leading-relaxed.select-text'))
+      .filter(el => !el.closest('div[class*="run-command"], div[class*="group/run-command"], div[class*="terminal"], div[class*="tool-invocation"]'));
+
+    if (textNodes.length > 0) {
+      answer = textNodes.map(t => t.innerText.trim()).filter(Boolean).join('\n\n');
+    } else if (!cmd && a.innerText) {
+      let rawA = a.innerText.trim();
+      if (/^(?:Ran|Run|Running|python3|bash|sh|cat|grep|curl|echo|~\/|\/home\/|\$|>>>)\b/i.test(rawA)) {
+        cmd = String.fromCharCode(96,96,96) + "bash\n" + rawA.replace(/^(?:Ran|Run|Running)\s*\n?/i, '') + "\n" + String.fromCharCode(96,96,96);
+      } else {
+        answer = rawA;
+      }
+    }
+
+    if (thought && answer.startsWith(thought)) {
+      answer = answer.slice(thought.length).trim();
+    }
+
+    let parts = [];
+    if (thought) parts.push(thought);
+    if (cmd) parts.push(cmd);
+    if (answer) parts.push(answer);
+
+    const fullText = parts.join('\n\n').trim();
+    if (fullText && fullText.length > 0) {
       messages.push({
         from: isUser ? 'user' : 'agent',
-        text: text,
+        text: fullText,
         timestamp: new Date().toISOString()
       });
     }
@@ -765,12 +770,14 @@ class CdpBridge {
   async syncAllMessages() {
     try {
       const res = await this.evaluate(EXPRESSION_SCRAPE_ALL_MESSAGES);
-      if (res && res.ok && Array.isArray(res.messages)) {
-        for (const m of res.messages) {
-          if (this.onNewMessage) this.onNewMessage(m);
+      if (res && res.ok && Array.isArray(res.messages) && res.messages.length > 0) {
+        if (this.onAllMessages) {
+          this.onAllMessages(res.messages);
         }
+        return res.messages;
       }
     } catch (e) {}
+    return [];
   }
 
   startHealthChecks() {

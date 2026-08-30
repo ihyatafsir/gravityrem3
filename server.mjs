@@ -149,6 +149,19 @@ function mergeAgentMessage(existingText, incomingText) {
   return parts.join('\n\n').trim();
 }
 
+cdpBridge.onAllMessages = (messages) => {
+  if (Array.isArray(messages) && messages.length > 0) {
+    STATE.messages = messages;
+    saveState();
+    broadcast('init_state', {
+      messages: STATE.messages,
+      agent: STATE.agent,
+      actions: STATE.actions,
+      stats: getSystemStats()
+    });
+  }
+};
+
 cdpBridge.onNewMessage = (msg) => {
   if (!msg || !msg.text) return;
 
