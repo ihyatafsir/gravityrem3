@@ -403,11 +403,10 @@ html, body {
   flex: 1;
   overflow-y: auto;
   overflow-x: hidden;
-  padding: 12px 10px calc(var(--sab) + 215px);
+  padding: 8px 6px calc(var(--sab) + 215px);
   display: flex;
   flex-direction: column;
-  gap: 12px;
-  scroll-behavior: smooth;
+  position: relative;
   -webkit-overflow-scrolling: touch;
 }
 
@@ -2514,4 +2513,573 @@ pre, pre code, .terminal-body, .terminal-body code, .code-container pre, .code-c
   margin: 0 12px;
   display: flex;
   align-items: center;
+}
+
+
+/* ==========================================================================
+   ◆ GravityRemote2 Phone Chat Engine: Live Snapshot & Command Boxes (v3.8)
+   ========================================================================== */
+
+.chat-content {
+  min-height: 100%;
+  padding: 4px 4px 12px;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+.loading-state {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  height: 50vh;
+  color: var(--text-muted, #858585);
+  gap: 12px;
+  text-align: center;
+}
+
+.loading-spinner {
+  width: 28px;
+  height: 28px;
+  border: 2px solid rgba(255, 255, 255, 0.1);
+  border-top-color: #22c55e;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Global Mobile Resets inside chat */
+#conversation, #conversation *, #chat, #chat *, #cascade, #cascade * {
+  box-sizing: border-box !important;
+  min-width: 0 !important;
+}
+
+[style*="container-type"], [class*="container-"] {
+  container-type: normal !important;
+}
+
+#conversation, #chat, #cascade {
+  background-color: transparent !important;
+  color: #CCCCCC !important;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif !important;
+  font-size: 14.5px !important;
+  position: relative !important;
+  height: auto !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  display: block !important;
+  overflow-x: hidden !important;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+}
+
+#conversation > div,
+#conversation div[class*="overflow-"],
+#conversation div[class*="grow"],
+#conversation [tabindex="0"] {
+  height: auto !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  overflow: visible !important;
+  flex: none !important;
+  display: block !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  padding-left: 2px !important;
+  padding-right: 2px !important;
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+}
+
+#conversation p, #chat p, #cascade p,
+#conversation span, #chat span, #cascade span,
+#conversation div, #chat div, #cascade div,
+#conversation li, #chat li, #cascade li,
+#conversation h1, #chat h1, #cascade h1,
+#conversation h2, #chat h2, #cascade h2,
+#conversation h3, #chat h3, #cascade h3,
+#conversation h4, #chat h4, #cascade h4 {
+  color: #e2e8f0 !important;
+  overflow-wrap: anywhere !important;
+  word-break: break-word !important;
+  max-width: 100% !important;
+  line-height: 1.55 !important;
+}
+
+#conversation a, #chat a, #cascade a {
+  color: #60a5fa !important;
+  text-decoration: underline;
+  overflow-wrap: anywhere !important;
+  word-break: break-all !important;
+}
+
+/* User Message Bubble styling (GravityRemote2 High-Fidelity) */
+.optimistic-user-bubble {
+  background: #252526 !important;
+  color: #f1f5f9 !important;
+  border: 1px solid #383838 !important;
+  border-radius: 12px !important;
+  padding: 10px 14px !important;
+  margin: 10px 4px 10px auto !important;
+  max-width: 90% !important;
+  font-family: 'Inter', system-ui, sans-serif !important;
+  font-size: 14.5px !important;
+  line-height: 1.5 !important;
+  word-break: break-word !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35) !important;
+  text-align: left !important;
+  white-space: pre-wrap !important;
+}
+
+[role="article"],
+[data-testid="user-input-step"],
+.group\/user-input-step {
+  width: 100% !important;
+  max-width: 100% !important;
+  box-sizing: border-box !important;
+  overflow: visible !important;
+}
+
+.whitespace-pre-wrap, .select-text, .leading-relaxed {
+  white-space: pre-wrap !important;
+  word-break: break-word !important;
+  overflow-wrap: anywhere !important;
+  max-width: 100% !important;
+}
+
+:not(pre) > code {
+  padding: 1px 5px !important;
+  border-radius: 4px !important;
+  background-color: rgba(255, 255, 255, 0.08) !important;
+  font-size: 0.88em !important;
+  font-family: 'JetBrains Mono', monospace !important;
+  word-break: break-all !important;
+  overflow-wrap: anywhere !important;
+  white-space: pre-wrap !important;
+  max-width: 100% !important;
+  display: inline !important;
+  color: #e2e8f0 !important;
+}
+
+pre, code, .monaco-editor-background {
+  background-color: #1a1a1a !important;
+  color: #e2e8f0 !important;
+  font-family: 'JetBrains Mono', monospace !important;
+  border-radius: 6px !important;
+  border: 1px solid #333333 !important;
+}
+
+/* ==========================================================================
+   ◆ Authentic Antigravity IDE Command Boxes ([class*="terminal"])
+   ========================================================================== */
+[class*="terminal"] {
+  background-color: #141414 !important;
+  color: #4ade80 !important;
+  font-family: 'JetBrains Mono', monospace !important;
+  border-radius: 6px !important;
+  border: 1px solid #2d2d2d !important;
+  max-height: 320px !important;
+  overflow-x: auto !important;
+  overflow-y: auto !important;
+  height: auto !important;
+  max-width: 100% !important;
+  box-sizing: border-box !important;
+  padding: 8px 10px !important;
+}
+
+[class*="terminal"]:empty,
+[class*="terminal"]:not(:has(*)),
+[class*="xterm"]:empty,
+[class*="xterm"]:not(:has(*)) {
+  display: none !important;
+}
+
+pre {
+  position: relative !important;
+  white-space: pre-wrap !important; 
+  word-break: break-word !important;
+  overflow-wrap: anywhere !important;
+  padding: 8px 36px 8px 10px !important;
+  margin: 6px 0 !important;
+  display: block !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  box-sizing: border-box !important;
+  overflow-x: auto !important;
+}
+
+pre code {
+  white-space: pre-wrap !important;
+  word-break: break-word !important;
+  overflow-wrap: anywhere !important;
+  max-width: 100% !important;
+}
+
+pre.has-copy-btn {
+  padding-right: 38px !important;
+}
+
+.mobile-copy-btn {
+  position: absolute !important;
+  top: 4px !important;
+  right: 4px !important;
+  background: rgba(40, 40, 40, 0.85) !important;
+  color: #94a3b8 !important;
+  border: 1px solid #444 !important;
+  width: 26px !important; 
+  height: 26px !important;
+  padding: 0 !important;
+  cursor: pointer !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border-radius: 4px !important;
+  transition: all 0.2s ease !important;
+  z-index: 10 !important;
+}
+
+.mobile-copy-btn:hover, .mobile-copy-btn:active {
+  background: rgba(34, 197, 94, 0.2) !important;
+  color: #4ade80 !important;
+  border-color: #22c55e !important;
+}
+
+.mobile-copy-btn svg {
+  width: 14px !important;
+  height: 14px !important;
+  stroke: currentColor !important;
+  stroke-width: 2 !important;
+  fill: none !important;
+}
+
+/* Tables in markdown */
+table {
+  width: 100% !important;
+  max-width: 100% !important;
+  display: block !important;
+  overflow-x: auto !important;
+  border-collapse: collapse !important;
+  margin: 8px 0 !important;
+}
+
+table th, table td {
+  word-break: break-word !important;
+  overflow-wrap: anywhere !important;
+  padding: 4px 8px !important;
+  border: 1px solid #333333 !important;
+}
+
+#chatContent [class*="text-muted-foreground"]:not(.artifact-card *):not([data-testid="worked-for-collapsible"] *) {
+  color: #94a3b8 !important;
+}
+
+#chatContent [class*="text-secondary-foreground"]:not(.artifact-card *):not([data-testid="worked-for-collapsible"] *) {
+  color: #e2e8f0 !important;
+}
+
+/* ==========================================================================
+   ◆ Collapsible tool steps (Ran X commands, Worked for Y, etc.)
+   ========================================================================== */
+button[data-testid="worked-for-collapsible"],
+button[class*="tabular-nums"] {
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.1) 0%, rgba(14, 26, 18, 0.8) 100%) !important;
+  border: 1px solid rgba(34, 197, 94, 0.35) !important;
+  color: #4ade80 !important;
+  border-radius: 10px !important;
+  padding: 6px 12px !important;
+  margin: 4px 0 !important;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4) !important;
+  cursor: pointer !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  transition: all 0.15s ease !important;
+}
+
+button[data-testid="worked-for-collapsible"]:hover,
+button[class*="tabular-nums"]:hover,
+button[data-testid="worked-for-collapsible"]:active,
+button[class*="tabular-nums"]:active {
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.22) 0%, rgba(18, 38, 24, 0.9) 100%) !important;
+  border-color: #22c55e !important;
+  box-shadow: 0 0 10px rgba(34, 197, 94, 0.3) !important;
+  transform: scale(0.985);
+}
+
+button[data-testid="worked-for-collapsible"] span,
+button[class*="tabular-nums"] span {
+  color: #86efac !important;
+}
+
+button[data-testid="worked-for-collapsible"] svg,
+button[class*="tabular-nums"] svg {
+  color: #4ade80 !important;
+  fill: currentColor !important;
+}
+
+/* ==========================================================================
+   ◆ Green Glowing Artifact Tabs & Expandable Cards
+   ========================================================================== */
+.artifact-card,
+#chatContent .artifact-card,
+div.border.rounded-xl.artifact-card,
+div[class*="artifact-card"],
+div.border.my-0\.5.rounded-xl,
+button[draggable="true"],
+#chatContent div:has(> button[draggable="true"]),
+#chatContent button:has(svg path[d*="M320-253.85"]) {
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.14) 0%, rgba(15, 28, 20, 0.85) 100%) !important;
+  border: 1px solid rgba(34, 197, 94, 0.45) !important;
+  border-radius: 12px !important;
+  padding: 7px 14px !important;
+  margin: 6px 0 !important;
+  color: #86efac !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4), inset 0 0 12px rgba(34, 197, 94, 0.08) !important;
+  cursor: pointer !important;
+  display: inline-flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  gap: 8px !important;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  width: auto !important;
+  max-width: 100% !important;
+}
+
+.artifact-card:hover,
+.artifact-card:active,
+#chatContent .artifact-card:active {
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.24) 0%, rgba(18, 42, 28, 0.95) 100%) !important;
+  border-color: #22c55e !important;
+  box-shadow: 0 0 16px rgba(34, 197, 94, 0.35) !important;
+  transform: scale(0.985);
+}
+
+.artifact-card button,
+.artifact-card span,
+.artifact-card button span,
+#chatContent .artifact-card button,
+#chatContent .artifact-card span {
+  color: #86efac !important;
+  font-weight: 600 !important;
+  font-size: 13.5px !important;
+  pointer-events: auto !important;
+}
+
+.artifact-card svg,
+.artifact-card button svg,
+#chatContent .artifact-card svg {
+  color: #4ade80 !important;
+  fill: currentColor !important;
+  stroke: currentColor !important;
+  width: 18px !important;
+  height: 18px !important;
+  flex-shrink: 0 !important;
+}
+
+/* ==========================================================================
+   📄 GravityRemote2 Native Sovereign Mobile File Viewer Slide-Over Window
+   ========================================================================== */
+.file-viewer-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.file-viewer-overlay.show {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.file-viewer-drawer {
+  background: #18181b;
+  border-top: 1px solid #27272a;
+  border-radius: 16px 16px 0 0;
+  box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.6);
+  max-height: 85vh;
+  min-height: 40vh;
+  display: flex;
+  flex-direction: column;
+  transform: translateY(100%);
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  overflow: hidden;
+}
+
+.file-viewer-overlay.show .file-viewer-drawer {
+  transform: translateY(0);
+}
+
+.file-viewer-handle-bar {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 8px 0 4px;
+  cursor: grab;
+}
+
+.file-viewer-handle {
+  width: 36px;
+  height: 4px;
+  background: #3f3f46;
+  border-radius: 2px;
+}
+
+.file-viewer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 14px 12px;
+  border-bottom: 1px solid #27272a;
+  gap: 10px;
+}
+
+.file-viewer-title-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  overflow: hidden;
+  flex: 1;
+}
+
+.file-viewer-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: rgba(34, 197, 94, 0.12);
+  border: 1px solid rgba(34, 197, 94, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #4ade80;
+  flex-shrink: 0;
+}
+
+.file-viewer-title-text {
+  overflow: hidden;
+}
+
+.file-viewer-filename {
+  font-size: 14px;
+  font-weight: 700;
+  color: #fafafa;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.file-viewer-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+.file-viewer-badge {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: #27272a;
+  color: #a1a1aa;
+}
+
+.file-viewer-badge-type {
+  background: rgba(34, 197, 94, 0.12);
+  color: #4ade80;
+  border: 1px solid rgba(34, 197, 94, 0.25);
+}
+
+.file-viewer-path-preview {
+  font-size: 10px;
+  color: #71717a;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 140px;
+}
+
+.file-viewer-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.file-action-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: #27272a;
+  border: 1px solid #3f3f46;
+  color: #e4e4e7;
+  cursor: pointer;
+  text-decoration: none;
+  transition: all 0.15s ease;
+}
+
+.file-action-btn:hover {
+  background: #3f3f46;
+  color: #fafafa;
+}
+
+.file-action-btn.file-action-close {
+  padding: 6px 8px;
+  color: #a1a1aa;
+}
+
+.file-action-btn.file-action-close:hover {
+  color: #f87171;
+  background: rgba(239, 68, 68, 0.12);
+}
+
+.file-viewer-body {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 14px 16px;
+  -webkit-overflow-scrolling: touch;
+}
+
+.file-viewer-body pre {
+  margin: 0 !important;
+  background: #111113 !important;
+  border: 1px solid #27272a !important;
+  border-radius: 8px !important;
+  padding: 12px 14px !important;
+  font-family: 'JetBrains Mono', monospace !important;
+  font-size: 12.5px !important;
+  line-height: 1.55 !important;
+  color: #e4e4e7 !important;
+  white-space: pre-wrap !important;
+  word-break: break-word !important;
+}
+
+.file-viewer-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 0;
+  gap: 12px;
+  color: #a1a1aa;
 }

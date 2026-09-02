@@ -1,10 +1,10 @@
 import express from 'express';
 import { WebSocketServer } from 'ws';
 import { createServer } from 'http';
-import { networkInterfaces, cpus, totalmem, freemem, uptime } from 'os';
+import { networkInterfaces, cpus, totalmem, freemem, uptime, homedir } from 'os';
 import { mkdir, readFile, writeFile, rename, readdir, stat } from 'fs/promises';
 import fs from 'fs';
-import { join, dirname } from 'path';
+import { join, dirname, basename, resolve as pathResolve } from 'path';
 import { fileURLToPath } from 'url';
 import { exec } from 'child_process';
 import multer from 'multer';
@@ -233,9 +233,195 @@ cdpBridge.onActionDetected = (actions) => {
   broadcast('actions_detected', actions);
 };
 
+// Broadcast high-fidelity live snapshot updates to mobile clients
+cdpBridge.onSnapshotUpdate = (snapshot) => {
+  broadcast('snapshot_update', {
+    hash: snapshot.hash,
+    stats: snapshot.stats,
+    isAgentBusy: snapshot.isAgentBusy
+  });
+};
+
 // ----------------------------------------------------------------------
 // REST API Routes
 // ----------------------------------------------------------------------
+
+// ----------------------------------------------------------------------
+// GravityRemote2 High-Fidelity Snapshot & Remote-Click Endpoints
+// ----------------------------------------------------------------------
+
+// 0.0 High-Fidelity Snapshot Endpoint
+app.get(['/api/snapshot', '/snapshot'], async (req, res) => {
+  let snap = cdpBridge.lastSnapshot;
+  if (!snap) {
+    snap = await cdpBridge.captureSnapshot(true);
+  }
+  if (!snap) {
+    return res.status(503).json({ ok: false, error: 'No snapshot available yet' });
+  }
+  res.setHeader('Content-Type', 'application/json; charset=utf-8');
+  res.json(snap);
+});
+
+// 0.1 Remote Interactive Click (Expands/Collapses Tool Steps, Commands, Thoughts in IDE)
+app.post(['/api/remote-click', '/remote-click'], async (req, res) => {
+  const { selector, index, textContent, testId, ariaLabel, tagName } = req.body || {};
+  const result = await cdpBridge.clickElement({ selector, index, textContent, testId, ariaLabel, tagName });
+  
+  // Fast burst capture to sync toggled UI immediately
+  setTimeout(() => cdpBridge.captureSnapshot(true), 150);
+  setTimeout(() => cdpBridge.captureSnapshot(true), 400);
+  setTimeout(() => cdpBridge.captureSnapshot(true), 800);
+  res.json(result);
+});
+
+// 0.2 Sovereign Mobile File Viewer Endpoints
+function resolveFilePath(rawPath) {
+  if (!rawPath) return null;
+  let cleanPath = rawPath.trim();
+  if (cleanPath.startsWith('file://')) cleanPath = cleanPath.slice(7);
+  cleanPath = cleanPath.split('#')[0].split('?')[0];
+
+  if (fs.existsSync(cleanPath)) {
+    try {
+      if (fs.statSync(cleanPath).isFile()) return cleanPath;
+    } catch(e) {}
+  }
+
+  const candidateRoots = [
+    join(homedir(), '.gemini/antigravity-ide/brain'),
+    join(homedir(), 'Documents/26apps/gravityrem3'),
+    join(homedir(), 'Documents/26apps/gravityremote2'),
+    join(homedir(), 'Documents'),
+    homedir()
+  ];
+
+  for (const root of candidateRoots) {
+    const full = join(root, cleanPath);
+    if (fs.existsSync(full)) {
+      try {
+        if (fs.statSync(full).isFile()) return full;
+      } catch(e) {}
+    }
+  }
+
+  const targetBase = basename(cleanPath);
+  if (targetBase) {
+    for (const root of candidateRoots) {
+      try {
+        const found = searchFileShallow(root, targetBase, 3);
+        if (found) return found;
+      } catch(e) {}
+    }
+  }
+
+  return null;
+}
+
+function searchFileShallow(dir, targetName, maxDepth = 3) {
+  if (maxDepth < 0 || !fs.existsSync(dir)) return null;
+  try {
+    const entries = fs.readdirSync(dir, { withFileTypes: true });
+    for (const entry of entries) {
+      if (entry.name.startsWith('.') && entry.name !== '.gemini') continue;
+      if (entry.name === 'node_modules') continue;
+      const fullPath = join(dir, entry.name);
+      if (entry.isFile() && entry.name === targetName) {
+        return fullPath;
+      }
+    }
+    for (const entry of entries) {
+      if (entry.name.startsWith('.') && entry.name !== '.gemini') continue;
+      if (entry.name === 'node_modules') continue;
+      if (entry.isDirectory()) {
+        const res = searchFileShallow(join(dir, entry.name), targetName, maxDepth - 1);
+        if (res) return res;
+      }
+    }
+  } catch(e) {}
+  return null;
+}
+
+app.get('/api/file/view', (req, res) => {
+  const rawPath = req.query.path || req.query.file;
+  if (!rawPath) return res.status(400).json({ ok: false, error: 'File path required' });
+
+  const resolved = resolveFilePath(rawPath);
+  if (!resolved) {
+    return res.status(404).json({ ok: false, error: `File not found: ${rawPath}` });
+  }
+
+  try {
+    const fileStat = fs.statSync(resolved);
+    const name = basename(resolved);
+    const ext = name.split('.').pop().toLowerCase();
+    const isImage = /^(jpe?g|png|gif|webp|svg|bmp|ico)$/i.test(ext);
+    const isMarkdown = /^(md|markdown|mdown|mkdn)$/i.test(ext);
+    const isCode = /^(py|js|ts|jsx|tsx|html|css|json|cpp|c|h|rs|go|sh|bash|java|kt|php|rb|sql|yaml|yml|xml|toml|ini|env)$/i.test(ext);
+
+    if (fileStat.size > 2 * 1024 * 1024) {
+      return res.json({
+        ok: true,
+        success: true,
+        name,
+        path: resolved,
+        size: fileStat.size,
+        truncated: true,
+        isImage: false,
+        isMarkdown: false,
+        isCode: true,
+        content: 'File is too large to preview (> 2MB). Use download button.'
+      });
+    }
+
+    if (isImage) {
+      const mime = ext === 'svg' ? 'image/svg+xml' : ext === 'png' ? 'image/png' : 'image/jpeg';
+      const base64 = fs.readFileSync(resolved).toString('base64');
+      return res.json({
+        ok: true,
+        success: true,
+        name,
+        path: resolved,
+        size: fileStat.size,
+        isImage: true,
+        isMarkdown: false,
+        isCode: false,
+        dataUrl: `data:${mime};base64,${base64}`
+      });
+    }
+
+    const content = fs.readFileSync(resolved, 'utf8');
+    res.json({
+      ok: true,
+      success: true,
+      name,
+      path: resolved,
+      size: fileStat.size,
+      isImage: false,
+      isMarkdown,
+      isCode,
+      content
+    });
+  } catch(err) {
+    res.status(500).json({ ok: false, error: `Failed to read file: ${err.message}` });
+  }
+});
+
+app.get('/api/file/raw', (req, res) => {
+  const rawPath = req.query.path || req.query.file;
+  if (!rawPath) return res.status(400).send('File path required');
+  const resolved = resolveFilePath(rawPath);
+  if (!resolved) return res.status(404).send(`File not found: ${rawPath}`);
+  res.sendFile(resolved);
+});
+
+app.get('/api/file/download', (req, res) => {
+  const rawPath = req.query.path || req.query.file;
+  if (!rawPath) return res.status(400).send('File path required');
+  const resolved = resolveFilePath(rawPath);
+  if (!resolved) return res.status(404).send(`File not found: ${rawPath}`);
+  res.download(resolved, basename(resolved));
+});
 
 // 0. Target Switcher
 app.get('/api/target', (req, res) => {
@@ -331,6 +517,13 @@ app.post('/api/messages', async (req, res) => {
 
   const injectRes = await cdpBridge.injectMessage(promptToInject);
   if (injectRes && injectRes.ok) {
+    // GravityRemote2 Post-Send Burst Snapshot captures
+    setTimeout(() => cdpBridge.captureSnapshot(true), 300);
+    setTimeout(() => cdpBridge.captureSnapshot(true), 800);
+    setTimeout(() => cdpBridge.captureSnapshot(true), 2000);
+    setTimeout(() => cdpBridge.captureSnapshot(true), 4000);
+    setTimeout(() => cdpBridge.captureSnapshot(true), 7000);
+
     return res.json({ ok: true, result: injectRes });
   } else {
     STATE.outbox.push(userMsg);
@@ -765,6 +958,18 @@ server.on('upgrade', (request, socket, head) => {
 
 wss.on('connection', async (ws) => {
   // init state directly from memory
+  if (cdpBridge.lastSnapshot) {
+    try {
+      ws.send(JSON.stringify({
+        event: 'snapshot_update',
+        payload: {
+          hash: cdpBridge.lastSnapshot.hash,
+          stats: cdpBridge.lastSnapshot.stats,
+          isAgentBusy: cdpBridge.lastSnapshot.isAgentBusy
+        }
+      }));
+    } catch(e) {}
+  }
   ws.send(JSON.stringify({
     event: 'init_state',
     payload: {

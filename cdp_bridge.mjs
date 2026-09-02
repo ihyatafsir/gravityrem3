@@ -568,6 +568,162 @@ const EXPRESSION_FOCUS_TAB = (index) => `(() => {
   return { ok: false, error: "tab_not_found" };
 })()`;
 
+
+// ----------------------------------------------------------------------
+// GravityRemote2 High-Fidelity Snapshot & Click Scripts
+// ----------------------------------------------------------------------
+
+function hashString(str) {
+  if (!str) return '0';
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = ((hash << 5) - hash) + str.charCodeAt(i);
+    hash |= 0;
+  }
+  return String(hash);
+}
+
+const LIGHT_CHECK_SCRIPT = `(() => {
+  const cascade = document.getElementById('conversation') || document.getElementById('chat') || document.getElementById('cascade');
+  if (!cascade) return null;
+  const scrollContainer = cascade.querySelector('.overflow-y-auto, [data-scroll-area]') || cascade;
+  return {
+    len: cascade.innerHTML.length,
+    scrollTop: scrollContainer.scrollTop,
+    scrollHeight: scrollContainer.scrollHeight,
+    childCount: cascade.children.length
+  };
+})()`;
+
+const CSS_EXTRACT_SCRIPT = `(() => {
+  const rules = [];
+  let totalSize = 0;
+  const MAX_CSS = 200000;
+  const seen = new Set();
+  for (const sheet of document.styleSheets) {
+    try {
+      for (const rule of sheet.cssRules) {
+        const text = rule.cssText;
+        if (text.length > 5000) continue;
+        if (seen.has(text)) continue;
+        seen.add(text);
+        totalSize += text.length;
+        if (totalSize > MAX_CSS) break;
+        rules.push(text);
+      }
+    } catch (e) {}
+    if (totalSize > MAX_CSS) break;
+  }
+  return rules.join('\\n');
+})()`;
+
+const CAPTURE_SCRIPT = `(() => {
+  const cascade = document.getElementById('conversation') || document.getElementById('chat') || document.getElementById('cascade');
+  if (!cascade) {
+    const body = document.body;
+    const childIds = Array.from(body ? body.children : []).map(c => c.id).filter(id => id).join(', ');
+    return { error: 'chat container not found', debug: { hasBody: !!body, availableIds: childIds } };
+  }
+  
+  const cascadeStyles = window.getComputedStyle(cascade);
+  
+  const scrollContainer = cascade.querySelector('.overflow-y-auto, [data-scroll-area]') || cascade;
+  const scrollInfo = {
+    scrollTop: scrollContainer.scrollTop,
+    scrollHeight: scrollContainer.scrollHeight,
+    clientHeight: scrollContainer.clientHeight,
+    scrollPercent: scrollContainer.scrollTop / (scrollContainer.scrollHeight - scrollContainer.clientHeight) || 0
+  };
+  
+  // Keep only the last ~50 message blocks for mobile memory optimization
+  const clone = cascade.cloneNode(true);
+  const scrollContainerClone = clone.querySelector('.overflow-y-auto, [data-scroll-area]') || clone;
+  const msgContainer = scrollContainerClone.firstElementChild ? scrollContainerClone : scrollContainerClone;
+  
+  const MAX_CHILDREN = 50;
+  const children = Array.from(msgContainer.children);
+  if (children.length > MAX_CHILDREN) {
+    const toRemove = children.length - MAX_CHILDREN;
+    for (let i = 0; i < toRemove; i++) {
+      msgContainer.removeChild(children[i]);
+    }
+    const trimNote = document.createElement('div');
+    trimNote.style.cssText = 'text-align:center;padding:8px;color:#666;font-size:12px;border-bottom:1px solid #333;margin-bottom:8px;';
+    trimNote.textContent = '⬆ ' + toRemove + ' earlier messages not shown (scroll on desktop to see)';
+    msgContainer.insertBefore(trimNote, msgContainer.firstChild);
+  }
+  
+  try {
+    const interactionSelectors = [
+      '.relative.flex.flex-col.gap-8',
+      '.flex.grow.flex-col.justify-start.gap-8',
+      'div[class*="interaction-area"]',
+      '.p-1.bg-gray-500\\/10',
+      '.outline-solid.justify-between',
+      '[contenteditable="true"]'
+    ];
+
+    interactionSelectors.forEach(selector => {
+      clone.querySelectorAll(selector).forEach(el => {
+        try {
+          if (selector === '[contenteditable="true"]') {
+            const area = el.closest('.relative.flex.flex-col.gap-8') || 
+                         el.closest('.flex.grow.flex-col.justify-start.gap-8') ||
+                         el.closest('div[id^="interaction"]') ||
+                         el.parentElement?.parentElement;
+            if (area && area !== clone) area.remove();
+            else el.remove();
+          } else {
+            el.remove();
+          }
+        } catch(e) {}
+      });
+    });
+
+    const allElements = clone.querySelectorAll('*');
+    allElements.forEach(el => {
+      try {
+        const text = (el.innerText || '').toLowerCase();
+        if (text.includes('review changes') || text.includes('files with changes') || text.includes('context found')) {
+          if (el.children.length < 10 || el.querySelector('button') || el.classList?.contains('justify-between')) {
+            el.style.display = 'none';
+            el.remove();
+          }
+        }
+      } catch (e) {}
+    });
+  } catch (globalErr) {}
+  
+  clone.querySelectorAll('[style*="container-type"]').forEach(el => {
+    el.style.containerType = 'normal';
+  });
+  clone.querySelectorAll('.overflow-hidden, .overflow-y-hidden, .overflow-y-auto').forEach(el => {
+    el.style.overflow = 'visible';
+    el.style.height = 'auto';
+  });
+  const html = clone.outerHTML;
+  
+  return {
+    html: html,
+    backgroundColor: cascadeStyles.backgroundColor,
+    color: cascadeStyles.color,
+    fontFamily: cascadeStyles.fontFamily,
+    scrollInfo: scrollInfo,
+    stats: {
+      nodes: clone.getElementsByTagName('*').length,
+      htmlSize: html.length
+    }
+  };
+})()`;
+
+const PROBE_BUSY_EXPR = `(() => {
+  const cancelBtn = document.querySelector('button[aria-label*="Cancel"], button[aria-label*="Stop"], .input-send-button-cancel-tooltip, .lucide-square, [data-testid="cancel-button"]');
+  if (cancelBtn && cancelBtn.offsetParent !== null) return "busy";
+  const stopIcon = document.querySelector('svg.lucide-square, svg[class*="square"], button.bg-red-500');
+  if (stopIcon && stopIcon.offsetParent !== null) return "busy";
+  return "idle";
+})()`;
+
 // ----------------------------------------------------------------------
 // CDP Bridge Implementation with Concurrency Mutex
 // ----------------------------------------------------------------------
@@ -591,6 +747,16 @@ class CdpBridge {
     this.queue = [];
     this.isProcessingQueue = false;
     this.isHealthCheckInProgress = false;
+
+    // GravityRemote2 Snapshot Engine State
+    this.lastSnapshot = null;
+    this.lastSnapshotHash = null;
+    this.cachedSnapshotCtxId = null;
+    this.cachedCSS = null;
+    this.lastCSSRefresh = 0;
+    this.lastLightCheck = null;
+    this.onSnapshotUpdate = null;
+    this.isSnapshotting = false;
   }
 
   async switchTarget(targetName) {
@@ -663,6 +829,7 @@ class CdpBridge {
         this.startHealthChecks();
         
         setTimeout(() => this.syncAllMessages(), 1000);
+        setTimeout(() => this.captureSnapshot(true), 600);
       });
 
       this.ws.on('message', (data) => {
@@ -892,6 +1059,11 @@ class CdpBridge {
           await this.syncAllMessages();
         }
         this.lastBusyState = isBusy;
+
+        // Auto-capture live high-fidelity chat snapshot
+        try {
+          await this.captureSnapshot();
+        } catch(e) {}
 
         // Auto-dispatch queued prompts in IDE if agent is not busy
         if (!isBusy) {
@@ -1401,6 +1573,206 @@ class CdpBridge {
       }
       return { ok: false, error: 'button_not_found' };
     })()`);
+  }
+
+  // ----------------------------------------------------------------------
+  // GravityRemote2 High-Fidelity Snapshot & Click Engine
+  // ----------------------------------------------------------------------
+
+  async captureSnapshot(force = false) {
+    if (!this.connected || !this.ws || this.ws.readyState !== WebSocket.OPEN) {
+      return this.lastSnapshot;
+    }
+    if (this.isSnapshotting) return this.lastSnapshot;
+    this.isSnapshotting = true;
+
+    try {
+      // 1. Resolve context containing the chat DOM
+      let targetCtxId = null;
+      if (this.cachedSnapshotCtxId && this.contexts.has(this.cachedSnapshotCtxId)) {
+        targetCtxId = this.cachedSnapshotCtxId;
+      } else {
+        this.cachedSnapshotCtxId = null;
+        const ctxList = [null, ...Array.from(this.contexts)];
+        for (const ctxId of ctxList) {
+          try {
+            const probe = await this.evaluate(LIGHT_CHECK_SCRIPT, ctxId);
+            if (probe && probe.len > 0) {
+              targetCtxId = ctxId;
+              this.cachedSnapshotCtxId = ctxId;
+              break;
+            }
+          } catch(e) {}
+        }
+      }
+
+      // 2. Lightweight change detection pre-flight
+      try {
+        const light = await this.evaluate(LIGHT_CHECK_SCRIPT, targetCtxId);
+        if (!light || !light.len) {
+          this.cachedSnapshotCtxId = null;
+          return this.lastSnapshot;
+        }
+
+        if (!force && this.lastLightCheck && this.lastSnapshot &&
+            light.len === this.lastLightCheck.len &&
+            light.childCount === this.lastLightCheck.childCount &&
+            light.scrollHeight === this.lastLightCheck.scrollHeight) {
+          if (light.scrollTop !== this.lastLightCheck.scrollTop && this.lastSnapshot.scrollInfo) {
+            this.lastSnapshot.scrollInfo.scrollTop = light.scrollTop;
+            this.lastSnapshot.scrollInfo.scrollPercent = light.scrollTop / (light.scrollHeight - (this.lastSnapshot.scrollInfo.clientHeight || 1)) || 0;
+          }
+          this.lastLightCheck = light;
+          return this.lastSnapshot;
+        }
+        this.lastLightCheck = light;
+      } catch(e) {
+        this.cachedSnapshotCtxId = null;
+        return this.lastSnapshot;
+      }
+
+      // 3. Full high-fidelity DOM snapshot capture
+      const result = await this.evaluate(CAPTURE_SCRIPT, targetCtxId);
+      if (!result || result.error || !result.html) {
+        this.cachedSnapshotCtxId = null;
+        return this.lastSnapshot;
+      }
+
+      // 4. Attach cached or fresh CSS
+      const now = Date.now();
+      if (!this.cachedCSS || (now - this.lastCSSRefresh) > 30000) {
+        try {
+          const cssRes = await this.evaluate(CSS_EXTRACT_SCRIPT, targetCtxId);
+          if (cssRes && typeof cssRes === 'string') {
+            this.cachedCSS = cssRes;
+            this.lastCSSRefresh = now;
+          }
+        } catch(e) {}
+      }
+      result.css = this.cachedCSS || '';
+      if (result.stats) result.stats.cssSize = result.css.length;
+
+      // 5. Detect live agent busy state
+      try {
+        const busyVal = await this.evaluate(PROBE_BUSY_EXPR, targetCtxId);
+        result.isAgentBusy = (busyVal === 'busy');
+      } catch(e) {
+        result.isAgentBusy = false;
+      }
+
+      const hash = hashString(result.html);
+      result.hash = hash;
+      const hasChanged = (hash !== this.lastSnapshotHash);
+
+      this.lastSnapshot = result;
+      this.lastSnapshotHash = hash;
+
+      if (hasChanged && this.onSnapshotUpdate) {
+        try {
+          this.onSnapshotUpdate(result);
+        } catch(e) {}
+      }
+
+      return result;
+    } catch(err) {
+      console.error('[CDP-SNAPSHOT-ERROR]', err.message);
+      return this.lastSnapshot;
+    } finally {
+      this.isSnapshotting = false;
+    }
+  }
+
+  async clickElement({ selector, index = 0, textContent, testId, ariaLabel, tagName }) {
+    const payloadJson = JSON.stringify({ selector, index, textContent, testId, ariaLabel, tagName });
+    const EXP = `(async () => {
+      try {
+        const req = ${payloadJson};
+        let candidates = [];
+
+        // 1. Match by testId (e.g. worked-for-collapsible)
+        if (req.testId) {
+          candidates = Array.from(document.querySelectorAll('[data-testid="' + req.testId + '"]'))
+            .filter(el => el.offsetParent !== null);
+        }
+
+        // 2. Match by aria-label
+        if (candidates.length === 0 && req.ariaLabel) {
+          candidates = Array.from(document.querySelectorAll('[aria-label="' + req.ariaLabel + '"]'))
+            .filter(el => el.offsetParent !== null);
+        }
+
+        // 3. Match by text content (Thought for ..., Worked for ..., Ran ..., etc.)
+        if (candidates.length === 0 && req.textContent) {
+          const searchTxt = (req.textContent || '').trim().toLowerCase();
+          const nlPos = searchTxt.indexOf(String.fromCharCode(10));
+          const firstLine = (nlPos !== -1 ? searchTxt.substring(0, nlPos) : searchTxt).trim();
+
+          const buttonsAndInteractives = Array.from(document.querySelectorAll('button, [role="button"], div, span, summary, pre'));
+          candidates = buttonsAndInteractives.filter(el => {
+            if (el.offsetParent === null) return false;
+            const elTxt = (el.innerText || el.textContent || '').trim().toLowerCase();
+            if (!elTxt) return false;
+            const elNlPos = elTxt.indexOf(String.fromCharCode(10));
+            const elFirstLine = (elNlPos !== -1 ? elTxt.substring(0, elNlPos) : elTxt).trim();
+            return elFirstLine === firstLine || elTxt.includes(firstLine) || firstLine.includes(elFirstLine);
+          });
+        }
+
+        // 4. CSS selector fallback
+        if (candidates.length === 0 && req.selector) {
+          try {
+            candidates = Array.from(document.querySelectorAll(req.selector))
+              .filter(el => el.offsetParent !== null);
+          } catch(e) {}
+        }
+
+        if (candidates.length === 0) {
+          return { success: false, error: 'Element not found', req };
+        }
+
+        const buttonCandidates = candidates.filter(c => c.tagName === 'BUTTON' || c.getAttribute('role') === 'button' || c.closest('button, [role="button"]'));
+        const pool = buttonCandidates.length > 0 ? buttonCandidates : candidates;
+
+        let target = null;
+        if (typeof req.index === 'number' && req.index >= 0 && req.index < pool.length) {
+          target = pool[req.index];
+        } else {
+          target = pool[pool.length - 1];
+        }
+
+        const parentBtn = target.closest('button, [role="button"], summary');
+        if (parentBtn && parentBtn.offsetParent !== null) {
+          target = parentBtn;
+        }
+
+        target.focus?.();
+        target.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, cancelable: true, view: window }));
+        target.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, view: window }));
+        target.dispatchEvent(new MouseEvent('pointerup', { bubbles: true, cancelable: true, view: window }));
+        target.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true, view: window }));
+        target.click();
+
+        return {
+          success: true,
+          tag: target.tagName,
+          text: (target.innerText || '').substring(0, 50),
+          expanded: target.getAttribute('aria-expanded')
+        };
+      } catch(e) {
+        return { success: false, error: e.toString() };
+      }
+    })()`;
+
+    const ctxList = [this.cachedSnapshotCtxId, null, ...Array.from(this.contexts)].filter(c => c !== undefined);
+    for (const ctxId of ctxList) {
+      try {
+        const res = await this.evaluate(EXP, ctxId);
+        if (res && res.success) {
+          return res;
+        }
+      } catch(e) {}
+    }
+    return { success: false, error: 'Element click target evaluation failed' };
   }
 }
 

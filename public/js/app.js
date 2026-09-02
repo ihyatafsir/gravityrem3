@@ -178,7 +178,18 @@ const elements = {
   chatSearchBar: document.getElementById('chat-search-bar'),
   chatSearchInput: document.getElementById('chat-search-input'),
   searchCount: document.getElementById('search-count'),
-  searchCloseBtn: document.getElementById('search-close-btn')
+  searchCloseBtn: document.getElementById('search-close-btn'),
+  chatContent: document.getElementById('chatContent'),
+  fileViewerOverlay: document.getElementById('fileViewerOverlay'),
+  fileViewerDrawer: document.getElementById('fileViewerDrawer'),
+  fileViewerFilename: document.getElementById('fileViewerFilename'),
+  fileViewerSizeBadge: document.getElementById('fileViewerSizeBadge'),
+  fileViewerTypeBadge: document.getElementById('fileViewerTypeBadge'),
+  fileViewerPathPreview: document.getElementById('fileViewerPathPreview'),
+  fileViewerBody: document.getElementById('fileViewerBody'),
+  fileDownloadBtn: document.getElementById('fileDownloadBtn'),
+  fileRawBtn: document.getElementById('fileRawBtn'),
+  fileCopyBtn: document.getElementById('fileCopyBtn')
 };
 
 function haptic(ms = 15) {
@@ -210,6 +221,7 @@ function connectWebSocket() {
     state.connected = true;
     updateStatus('Live', 'online');
     fetchLiveModels();
+    loadSnapshot();
   };
 
   state.ws.onmessage = (event) => {
@@ -232,10 +244,15 @@ function connectWebSocket() {
 
 function handleWsEvent(msg) {
   switch (msg.event) {
+    case 'snapshot_update':
+      loadSnapshot();
+      break;
+
     case 'init_state':
       state.messages = msg.payload.messages || [];
       state.agent = msg.payload.agent || { state: 'idle', busy: false };
       state.actions = msg.payload.actions || state.actions;
+      loadSnapshot();
       renderMessages();
       updateAgentUI();
       updateActionsUI(state.actions);
@@ -1006,6 +1023,9 @@ async function sendMessage() {
 }
 
 async function postMessageDirect(text) {
+  appendOptimisticUserBubble(text);
+  burstLoadSnapshot();
+
   try {
     const res = await fetch('/api/messages', {
       method: 'POST',
@@ -1016,6 +1036,7 @@ async function postMessageDirect(text) {
         mode: state.agentMode
       })
     });
+    burstLoadSnapshot();
     const data = await res.json();
     if (!data.ok) {
       console.error('[SEND_ERR]', data);
@@ -2268,4 +2289,384 @@ if (document.readyState === 'loading') {
   setupLisanBannerEvents();
   fetchLisanData();
   setInterval(fetchLisanData, 60000);
+  setupChatContentInteractions();
+  loadSnapshot();
+}
+
+
+// ----------------------------------------------------------------------
+// GravityRemote2 High-Fidelity Snapshot, Command Box & File Engine (v3.8)
+// ----------------------------------------------------------------------
+
+let userScrollLockUntil = 0;
+let lastSnapshotHash = null;
+let currentFileViewerRawContent = '';
+
+async function loadSnapshot() {
+  const chatContent = elements.chatContent || document.getElementById('chatContent');
+  const chatViewport = elements.chatViewport || document.getElementById('chat-viewport');
+  if (!chatContent || !chatViewport) return;
+
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000);
+    const res = await fetch('/api/snapshot', { signal: controller.signal });
+    clearTimeout(timeout);
+
+    if (!res.ok) {
+      if (res.status === 503 && (!chatContent.innerHTML || chatContent.innerHTML.includes('Connecting'))) {
+        chatContent.innerHTML = `
+          <div class="loading-state">
+            <div class="loading-spinner"></div>
+            <p style="color:#a1a1aa; font-size:13px; font-weight:500;">Connecting to Antigravity IDE Workbench...</p>
+          </div>
+        `;
+      }
+      return;
+    }
+
+    const data = await res.json();
+    if (data.isAgentBusy !== undefined) {
+      state.agent.busy = data.isAgentBusy;
+      updateAgentUI();
+    }
+
+    // Capture scroll state BEFORE updating content
+    const scrollPos = chatViewport.scrollTop;
+    const scrollHeight = chatViewport.scrollHeight;
+    const clientHeight = chatViewport.clientHeight;
+    const isNearBottom = (scrollHeight - scrollPos - clientHeight) < 140;
+    const isUserScrollLocked = Date.now() < userScrollLockUntil;
+
+    // Dynamic Style Injection with Dark Mode Overrides
+    let styleTag = document.getElementById('cdp-styles');
+    if (!styleTag) {
+      styleTag = document.createElement('style');
+      styleTag.id = 'cdp-styles';
+      document.head.appendChild(styleTag);
+    }
+    styleTag.textContent = (data.css || '') + '\n';
+
+    // Update DOM if hash changed or first load
+    if (data.hash !== lastSnapshotHash || !lastSnapshotHash) {
+      lastSnapshotHash = data.hash;
+      chatContent.innerHTML = data.html;
+      addMobileCopyButtons();
+    }
+
+    // Smart scroll management
+    if (isUserScrollLocked) {
+      const scrollPercent = scrollHeight > 0 ? scrollPos / scrollHeight : 0;
+      chatViewport.scrollTop = chatViewport.scrollHeight * scrollPercent;
+    } else if (isNearBottom || scrollPos === 0) {
+      chatViewport.scrollTop = chatViewport.scrollHeight;
+    }
+
+    // Floating scroll-to-bottom button
+    if (elements.scrollToBottomBtn) {
+      const distance = chatViewport.scrollHeight - chatViewport.scrollTop - chatViewport.clientHeight;
+      if (distance > 160) {
+        elements.scrollToBottomBtn.classList.add('show');
+      } else {
+        elements.scrollToBottomBtn.classList.remove('show');
+      }
+    }
+  } catch(e) {
+    // Retain current view gracefully on transient network errors
+  }
+}
+
+function burstLoadSnapshot() {
+  setTimeout(loadSnapshot, 200);
+  setTimeout(loadSnapshot, 600);
+  setTimeout(loadSnapshot, 1500);
+  setTimeout(loadSnapshot, 3000);
+  setTimeout(loadSnapshot, 6000);
+}
+
+function appendOptimisticUserBubble(text) {
+  const chatContent = elements.chatContent || document.getElementById('chatContent');
+  const chatViewport = elements.chatViewport || document.getElementById('chat-viewport');
+  if (!chatContent || !chatViewport) return;
+
+  const bubble = document.createElement('div');
+  bubble.className = 'optimistic-user-bubble';
+  bubble.textContent = text;
+  chatContent.appendChild(bubble);
+  chatViewport.scrollTop = chatViewport.scrollHeight;
+}
+
+function addMobileCopyButtons() {
+  const chatContent = elements.chatContent || document.getElementById('chatContent');
+  if (!chatContent) return;
+
+  const codeBlocks = chatContent.querySelectorAll('pre');
+  codeBlocks.forEach(pre => {
+    if (pre.querySelector('.mobile-copy-btn')) return;
+    pre.classList.add('has-copy-btn');
+
+    const btn = document.createElement('button');
+    btn.className = 'mobile-copy-btn';
+    btn.setAttribute('aria-label', 'Copy code');
+    btn.innerHTML = `<svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>`;
+
+    btn.onclick = (e) => {
+      e.stopPropagation();
+      const code = pre.querySelector('code')?.innerText || pre.innerText;
+      navigator.clipboard.writeText(code).then(() => {
+        btn.innerHTML = `<svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>`;
+        btn.style.color = '#22c55e';
+        haptic(20);
+        setTimeout(() => {
+          btn.innerHTML = `<svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>`;
+          btn.style.color = '';
+        }, 2000);
+      });
+    };
+    pre.appendChild(btn);
+  });
+}
+
+function setupChatContentInteractions() {
+  const chatContent = elements.chatContent || document.getElementById('chatContent');
+  const chatViewport = elements.chatViewport || document.getElementById('chat-viewport');
+  if (!chatContent || !chatViewport) return;
+
+  // Track user scroll locks
+  chatViewport.addEventListener('scroll', () => {
+    const scrollPos = chatViewport.scrollTop;
+    const scrollHeight = chatViewport.scrollHeight;
+    const clientHeight = chatViewport.clientHeight;
+    const isNearBottom = (scrollHeight - scrollPos - clientHeight) < 140;
+
+    if (!isNearBottom) {
+      userScrollLockUntil = Date.now() + 10000;
+      if (elements.scrollToBottomBtn) elements.scrollToBottomBtn.classList.add('show');
+    } else {
+      userScrollLockUntil = 0;
+      if (elements.scrollToBottomBtn) elements.scrollToBottomBtn.classList.remove('show');
+    }
+  }, { passive: true });
+
+  // Floating scroll-to-bottom button action
+  if (elements.scrollToBottomBtn) {
+    elements.scrollToBottomBtn.onclick = () => {
+      haptic(15);
+      userScrollLockUntil = 0;
+      chatViewport.scrollTo({ top: chatViewport.scrollHeight, behavior: 'smooth' });
+    };
+  }
+
+  // Delegated clicks inside live IDE chat
+  chatContent.addEventListener('click', async (e) => {
+    // 1. Anchor links (file preview / markdown / download)
+    const anchor = e.target.closest('a');
+    if (anchor) {
+      const href = anchor.getAttribute('href') || '';
+      if (href.includes('/api/file/raw') || href.includes('/api/file/download') || href.startsWith('file://') || href.match(/\.(md|markdown|txt|js|ts|py|json|sh|log|pdf|png|jpg)(\?|#|$)/i)) {
+        e.preventDefault();
+        e.stopPropagation();
+        let targetPath = href;
+        try {
+          const urlParams = new URL(href, window.location.origin);
+          targetPath = urlParams.searchParams.get('path') || href;
+        } catch(uErr) {}
+        openMobileFileViewer(targetPath);
+        return;
+      }
+    }
+
+    // 2. Artifact cards (green pills / artifact widgets)
+    const cardEl = e.target.closest('.artifact-card, [data-testid*="artifact"], .file-card');
+    if (cardEl && !e.target.closest('pre, code, button, .mobile-copy-btn, [role="button"]')) {
+      const titleEl = cardEl.querySelector('[data-testid*="title"], h1, h2, h3, h4, span, div');
+      const cardText = (cardEl.getAttribute('data-path') || cardEl.getAttribute('data-filename') || (titleEl ? titleEl.innerText : cardEl.innerText) || '').trim();
+      const match = cardText.match(/([a-zA-Z0-9_\-\.\/]+\.(md|markdown|js|ts|jsx|tsx|py|json|html|css|sh|txt|png|jpg|jpeg|svg|webp|log|pdf))/i);
+      if (match && match[1] && match[1].length >= 4 && !match[1].startsWith('http:') && !match[1].startsWith('https:')) {
+        e.preventDefault();
+        e.stopPropagation();
+        openMobileFileViewer(match[1]);
+        return;
+      }
+    }
+
+    // 3. Collapsible tool steps & thoughts (Thought for..., Worked for..., Ran command...)
+    const thoughtBtn = e.target.closest('button, div.relative > button, div[role="button"]');
+    const workedForBtn = e.target.closest('button[data-testid="worked-for-collapsible"], button[class*="tabular-nums"]');
+    const toolRow = e.target.closest('div.group.cursor-pointer, div[role="button"]');
+
+    let targetEl = workedForBtn || thoughtBtn || toolRow;
+    if (!targetEl) {
+      const candidate = e.target.closest('div, span, p, button');
+      if (candidate) {
+        const txt = (candidate.innerText || candidate.textContent || '').trim();
+        if (/^(Thought|Thinking|Worked for|Ran\b|Explored\b|Running\b)/i.test(txt)) {
+          targetEl = candidate;
+        }
+      }
+    }
+
+    if (!targetEl) return;
+
+    const rawText = (targetEl.innerText || targetEl.textContent || '').trim();
+    const firstLine = rawText.split('\n')[0].trim();
+    const testId = targetEl.getAttribute('data-testid') || (targetEl.querySelector('[data-testid]')?.getAttribute('data-testid')) || '';
+    const ariaLabel = targetEl.getAttribute('aria-label') || '';
+    const tagName = targetEl.tagName.toLowerCase();
+
+    const isThought = /Thought|Thinking/i.test(firstLine);
+    const isWorkedFor = /Worked for/i.test(firstLine) || testId === 'worked-for-collapsible';
+    const isTool = /^(Ran|Explored|Running|Run)\b/i.test(firstLine);
+
+    if (!isThought && !isWorkedFor && !isTool && !testId) return;
+
+    e.preventDefault();
+    e.stopPropagation();
+
+    haptic(20);
+    targetEl.style.opacity = '0.6';
+    targetEl.style.transform = 'scale(0.98)';
+    setTimeout(() => {
+      targetEl.style.opacity = '1';
+      targetEl.style.transform = '';
+    }, 180);
+
+    let matchIndex = 0;
+    try {
+      const allMatching = Array.from(chatContent.querySelectorAll(tagName))
+        .filter(el => {
+          const t = (el.innerText || el.textContent || '').trim().split('\n')[0].trim();
+          return t && (t === firstLine || t.includes(firstLine) || firstLine.includes(t));
+        });
+      const idx = allMatching.indexOf(targetEl);
+      if (idx >= 0) matchIndex = idx;
+    } catch(e) {}
+
+    try {
+      await fetch('/api/remote-click', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          testId: testId || undefined,
+          ariaLabel: ariaLabel || undefined,
+          tagName,
+          textContent: firstLine,
+          index: matchIndex
+        })
+      });
+
+      setTimeout(loadSnapshot, 150);
+      setTimeout(loadSnapshot, 450);
+      setTimeout(loadSnapshot, 900);
+    } catch(err) {
+      console.warn('[Remote Click Error]:', err);
+    }
+  });
+}
+
+// ----------------------------------------------------------------------
+// Sovereign Mobile File Viewer Logic
+// ----------------------------------------------------------------------
+
+window.openMobileFileViewer = async function(filePath) {
+  if (!filePath) return;
+  const overlay = elements.fileViewerOverlay || document.getElementById('fileViewerOverlay');
+  const filenameEl = elements.fileViewerFilename || document.getElementById('fileViewerFilename');
+  const sizeBadge = elements.fileViewerSizeBadge || document.getElementById('fileViewerSizeBadge');
+  const typeBadge = elements.fileViewerTypeBadge || document.getElementById('fileViewerTypeBadge');
+  const pathPreview = elements.fileViewerPathPreview || document.getElementById('fileViewerPathPreview');
+  const bodyEl = elements.fileViewerBody || document.getElementById('fileViewerBody');
+  const downloadBtn = elements.fileDownloadBtn || document.getElementById('fileDownloadBtn');
+  const rawBtn = elements.fileRawBtn || document.getElementById('fileRawBtn');
+
+  if (!overlay || !bodyEl) return;
+
+  const cleanName = filePath.split('/').pop().split('#')[0] || 'Document';
+  if (filenameEl) filenameEl.textContent = cleanName;
+  if (sizeBadge) sizeBadge.textContent = 'Loading...';
+  if (pathPreview) pathPreview.textContent = filePath;
+  bodyEl.innerHTML = `
+    <div class="file-viewer-loading">
+      <div class="loading-spinner"></div>
+      <p style="color:#a1a1aa; font-size:12px;">Loading ${escapeHtml(cleanName)}...</p>
+    </div>
+  `;
+
+  overlay.classList.add('show');
+  haptic(15);
+
+  try {
+    const res = await fetch(`/api/file/view?path=${encodeURIComponent(filePath)}`);
+    const data = await res.json();
+
+    if (!data.ok || !data.success) {
+      bodyEl.innerHTML = `
+        <div class="file-viewer-loading" style="color:#f87171;">
+          <div style="font-size:14px;color:#ef4444;font-weight:700;">Could not open file</div>
+          <p style="font-size:12px;color:#94a3b8;margin-top:4px;">${escapeHtml(data.error || 'Unknown error')}</p>
+        </div>
+      `;
+      return;
+    }
+
+    currentFileViewerRawContent = data.content || '';
+    if (filenameEl) filenameEl.textContent = data.name;
+    if (sizeBadge) sizeBadge.textContent = formatBytes(data.size);
+    if (pathPreview) pathPreview.textContent = data.path;
+
+    if (downloadBtn) downloadBtn.href = `/api/file/download?path=${encodeURIComponent(data.path)}`;
+    if (rawBtn) rawBtn.href = `/api/file/raw?path=${encodeURIComponent(data.path)}`;
+
+    const ext = data.name.split('.').pop().toLowerCase();
+    if (typeBadge) typeBadge.textContent = ext.toUpperCase();
+
+    if (data.isImage) {
+      bodyEl.innerHTML = `
+        <div style="text-align:center;padding:12px 0;">
+          <img src="${data.dataUrl}" alt="${data.name}" style="max-width:100%; border-radius:8px; border:1px solid #333;" />
+        </div>
+      `;
+    } else if (data.isMarkdown) {
+      bodyEl.innerHTML = renderMarkdown(data.content);
+    } else {
+      bodyEl.innerHTML = `<pre><code>${escapeHtml(data.content)}</code></pre>`;
+    }
+  } catch(e) {
+    bodyEl.innerHTML = `<div class="file-viewer-loading" style="color:#f87171;">Load Error: ${e.message}</div>`;
+  }
+};
+
+window.closeMobileFileViewer = function() {
+  const overlay = elements.fileViewerOverlay || document.getElementById('fileViewerOverlay');
+  if (overlay) {
+    overlay.classList.remove('show');
+    haptic(15);
+  }
+};
+
+window.handleFileOverlayClick = function(e) {
+  const overlay = elements.fileViewerOverlay || document.getElementById('fileViewerOverlay');
+  if (e.target === overlay) {
+    closeMobileFileViewer();
+  }
+};
+
+window.copyFileViewerContent = function() {
+  if (!currentFileViewerRawContent) return;
+  navigator.clipboard.writeText(currentFileViewerRawContent).then(() => {
+    haptic(25);
+    const copyBtn = elements.fileCopyBtn || document.getElementById('fileCopyBtn');
+    if (copyBtn) {
+      const original = copyBtn.innerHTML;
+      copyBtn.textContent = 'Copied!';
+      setTimeout(() => { copyBtn.innerHTML = original; }, 2000);
+    }
+  });
+};
+
+function formatBytes(bytes) {
+  if (!bytes || bytes <= 0) return '0 B';
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+  return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
 }
