@@ -45,13 +45,13 @@ const EXPRESSION_CHECK_LAST_MESSAGE = `(() => {
       if (pText.startsWith(tText)) pText = pText.slice(tText.length).trim();
       if (pText) tSteps = pText;
     }
-    thought = tText + (tSteps ? ('\n' + tSteps) : '');
+    thought = tText + (tSteps ? ('\\n' + tSteps) : '');
   }
 
   const toolLines = [];
   const stepButtons = Array.from(a.querySelectorAll('button[class*="tabular-nums"], button')).filter(b => {
     const t = (b.innerText || '').trim();
-    return /^(?:Ran|Running|Explored|Exploring|Edited|Editing|Viewed|Viewing|Created|Deleted|Built|Building)\b/i.test(t);
+    return /^(?:Ran|Running|Explored|Exploring|Edited|Editing|Viewed|Viewing|Created|Deleted|Built|Building)\\b/i.test(t);
   });
   stepButtons.forEach(b => {
     const t = b.innerText.trim();
@@ -66,7 +66,7 @@ const EXPRESSION_CHECK_LAST_MESSAGE = `(() => {
 
   let cmd = '';
   if (toolLines.length > 0) {
-    cmd = String.fromCharCode(96,96,96) + "bash\n" + toolLines.join('\n') + "\n" + String.fromCharCode(96,96,96);
+    cmd = String.fromCharCode(96,96,96) + "bash\\n" + toolLines.join('\\n') + "\\n" + String.fromCharCode(96,96,96);
   }
 
   let answer = '';
@@ -74,7 +74,7 @@ const EXPRESSION_CHECK_LAST_MESSAGE = `(() => {
     .filter(el => !el.closest('button[class*="tabular-nums"], div[class*="group/run-command"], div[class*="terminal"], pre'));
 
   if (proseNodes.length > 0) {
-    answer = proseNodes.map(t => t.innerText.trim()).filter(Boolean).join('\n\n');
+    answer = proseNodes.map(t => t.innerText.trim()).filter(Boolean).join('\\n\\n');
   }
 
   let parts = [];
@@ -84,7 +84,7 @@ const EXPRESSION_CHECK_LAST_MESSAGE = `(() => {
 
   return {
     from: 'agent',
-    text: parts.join('\n\n').trim(),
+    text: parts.join('\\n\\n').trim(),
     timestamp: new Date().toISOString()
   };
 })()`;
@@ -127,7 +127,7 @@ const EXPRESSION_DETECT_ACTIONS = `(() => {
       const isChecked = !!l.querySelector('input:checked') || l.getAttribute('aria-checked') === 'true';
       return {
         id: idx,
-        text: l.innerText ? l.innerText.trim().replace(/^\d+\s*\n?/, '') : '',
+        text: l.innerText ? l.innerText.trim().replace(/^\\d+\\s*/, '') : '',
         checked: isChecked
       };
     }).filter(opt => opt.text.length > 0);
@@ -148,17 +148,17 @@ const EXPRESSION_DETECT_ACTIONS = `(() => {
   const approvalKeywords = ['allow', 'approve', 'proceed', 'run', 'configure', 'deny', 'review changes', 'accept', 'retry', 'submit', 'skip', 'yes', 'no'];
   const pendingButtons = allButtons.filter(b => {
     const t = (b.innerText || '').trim().toLowerCase();
-    return approvalKeywords.some(kw => t === kw || t.startsWith(kw + '\n') || t.startsWith(kw + ' '));
+    return approvalKeywords.some(kw => t === kw || t.startsWith(kw + '\\n') || t.startsWith(kw + ' '));
   }).map((b, idx) => ({
     id: idx,
-    text: b.innerText.trim().split('\n')[0],
+    text: b.innerText.trim().split('\\n')[0],
     aria: b.getAttribute('aria-label') || ''
   }));
 
   let permissionPrompt = null;
   const dialogEl = document.querySelector('div[role="dialog"], div[class*="notification-toast"], div[class*="monaco-dialog"]');
   if (dialogEl && dialogEl.offsetParent !== null) {
-    const txt = dialogEl.innerText ? dialogEl.innerText.trim().split('\n')[0] : '';
+    const txt = dialogEl.innerText ? dialogEl.innerText.trim().split('\\n')[0] : '';
     if (txt && txt.length < 140) permissionPrompt = txt;
   }
   
@@ -180,7 +180,7 @@ const EXPRESSION_DETECT_ACTIONS = `(() => {
 })()`;
 
 const EXPRESSION_GET_MODELS = `(() => {
-  const modelBtn = Array.from(document.querySelectorAll('button, [role="button"]')).find(b => {
+  const modelBtn = document.querySelector('button[data-testid="model-selector-trigger"]') || Array.from(document.querySelectorAll('button, [role="button"]')).find(b => {
     const aria = (b.getAttribute('aria-label') || '').toLowerCase();
     return aria.includes('select model');
   });
@@ -214,46 +214,42 @@ const EXPRESSION_GET_MODELS = `(() => {
 
 const EXPRESSION_SELECT_MODEL_BY_NAME = (modelName) => `(async () => {
   const searchName = ${JSON.stringify(modelName.toLowerCase())};
-  const modelBtn = Array.from(document.querySelectorAll('button, [role="button"]')).find(b => {
+  const modelBtn = document.querySelector('button[data-testid="model-selector-trigger"]') ||
+                   Array.from(document.querySelectorAll('button, [role="button"]')).find(b => {
     const aria = (b.getAttribute('aria-label') || '').toLowerCase();
     return aria.includes('select model');
   });
   
   if (!modelBtn) return { ok: false, error: 'model_btn_not_found' };
 
+  modelBtn.focus();
   modelBtn.click();
-  await new Promise(r => setTimeout(r, 350));
+  await new Promise(r => setTimeout(r, 600));
 
   const items = Array.from(document.querySelectorAll('div[role="menuitem"], div[role="option"], [role="menuitem"]'));
   const match = items.find(el => {
-    const t = (el.innerText || '').toLowerCase().trim();
-    if (t.includes(searchName) || searchName.includes(t.split('\n')[0].trim())) return true;
-    const cleanT = t.replace(/\s+/g, ' ');
-    const cleanSearch = searchName.replace(/\s+/g, ' ');
-    if (cleanT.includes(cleanSearch) || cleanSearch.includes(cleanT)) return true;
+    const t = (el.innerText || '').toLowerCase();
+    if (t.includes(searchName)) return true;
     if (searchName.includes('3.8') && t.includes('3.8')) return true;
     if (searchName.includes('3.7') && t.includes('3.7')) return true;
-    if (searchName.includes('sonnet') && t.includes('sonnet')) return true;
-    if (searchName.includes('opus') && t.includes('opus')) return true;
-    if (searchName.includes('3.1') && t.includes('3.1')) return true;
     if (searchName.includes('3.6') && t.includes('3.6')) return true;
     if (searchName.includes('3.5') && t.includes('3.5')) return true;
+    if (searchName.includes('3.1') && t.includes('3.1')) return true;
+    if (searchName.includes('sonnet') && t.includes('sonnet')) return true;
+    if (searchName.includes('opus') && t.includes('opus')) return true;
     if (searchName.includes('gpt') && t.includes('gpt')) return true;
     return false;
   });
 
   if (match) {
     try {
-      match.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true }));
-      match.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+      match.focus();
       match.click();
-      match.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true }));
-      match.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, cancelable: true }));
     } catch(e) {
       match.click();
     }
-    await new Promise(r => setTimeout(r, 200));
-    return { ok: true, selected: modelName };
+    await new Promise(r => setTimeout(r, 400));
+    return { ok: true, selected: searchName };
   }
 
   // Close with Escape if not found
@@ -334,13 +330,13 @@ const EXPRESSION_SCRAPE_ALL_MESSAGES = `(() => {
         if (pText.startsWith(tText)) pText = pText.slice(tText.length).trim();
         if (pText) tSteps = pText;
       }
-      thought = tText + (tSteps ? ('\n' + tSteps) : '');
+      thought = tText + (tSteps ? ('\\n' + tSteps) : '');
     }
 
     const toolLines = [];
     const stepButtons = Array.from(a.querySelectorAll('button[class*="tabular-nums"], button')).filter(b => {
       const t = (b.innerText || '').trim();
-      return /^(?:Ran|Running|Explored|Exploring|Edited|Editing|Viewed|Viewing|Created|Deleted|Built|Building)\b/i.test(t);
+      return /^(?:Ran|Running|Explored|Exploring|Edited|Editing|Viewed|Viewing|Created|Deleted|Built|Building)\\b/i.test(t);
     });
     stepButtons.forEach(b => {
       const t = b.innerText.trim();
@@ -355,7 +351,7 @@ const EXPRESSION_SCRAPE_ALL_MESSAGES = `(() => {
 
     let cmd = '';
     if (toolLines.length > 0) {
-      cmd = String.fromCharCode(96,96,96) + "bash\n" + toolLines.join('\n') + "\n" + String.fromCharCode(96,96,96);
+      cmd = String.fromCharCode(96,96,96) + "bash\\n" + toolLines.join('\\n') + "\\n" + String.fromCharCode(96,96,96);
     }
 
     let answer = '';
@@ -363,7 +359,7 @@ const EXPRESSION_SCRAPE_ALL_MESSAGES = `(() => {
       .filter(el => !el.closest('button[class*="tabular-nums"], div[class*="group/run-command"], div[class*="terminal"], pre'));
 
     if (proseNodes.length > 0) {
-      answer = proseNodes.map(t => t.innerText.trim()).filter(Boolean).join('\n\n');
+      answer = proseNodes.map(t => t.innerText.trim()).filter(Boolean).join('\\n\\n');
     }
 
     let parts = [];
@@ -371,7 +367,7 @@ const EXPRESSION_SCRAPE_ALL_MESSAGES = `(() => {
     if (cmd) parts.push(cmd);
     if (answer) parts.push(answer);
 
-    const fullText = parts.join('\n\n').trim();
+    const fullText = parts.join('\\n\\n').trim();
     if (fullText && fullText.length > 0) {
       messages.push({
         from: 'agent',
@@ -490,13 +486,13 @@ const EXPRESSION_SETUP_OBSERVER = `(() => {
             if (pText.startsWith(tText)) pText = pText.slice(tText.length).trim();
             if (pText) tSteps = pText;
           }
-          thought = tText + (tSteps ? ('\n' + tSteps) : '');
+          thought = tText + (tSteps ? ('\\n' + tSteps) : '');
         }
 
         const toolLines = [];
         const stepButtons = Array.from(a.querySelectorAll('button[class*="tabular-nums"], button')).filter(b => {
           const t = (b.innerText || '').trim();
-          return /^(?:Ran|Running|Explored|Exploring|Edited|Editing|Viewed|Viewing|Created|Deleted|Built|Building)\b/i.test(t);
+          return /^(?:Ran|Running|Explored|Exploring|Edited|Editing|Viewed|Viewing|Created|Deleted|Built|Building)\\b/i.test(t);
         });
         stepButtons.forEach(b => {
           const t = b.innerText.trim();
@@ -511,7 +507,7 @@ const EXPRESSION_SETUP_OBSERVER = `(() => {
 
         let cmd = '';
         if (toolLines.length > 0) {
-          cmd = String.fromCharCode(96,96,96) + "bash\n" + toolLines.join('\n') + "\n" + String.fromCharCode(96,96,96);
+          cmd = String.fromCharCode(96,96,96) + "bash\\n" + toolLines.join('\\n') + "\\n" + String.fromCharCode(96,96,96);
         }
 
         let answer = '';
@@ -519,7 +515,7 @@ const EXPRESSION_SETUP_OBSERVER = `(() => {
           .filter(el => !el.closest('button[class*="tabular-nums"], div[class*="group/run-command"], div[class*="terminal"], pre'));
 
         if (proseNodes.length > 0) {
-          answer = proseNodes.map(t => t.innerText.trim()).filter(Boolean).join('\n\n');
+          answer = proseNodes.map(t => t.innerText.trim()).filter(Boolean).join('\\n\\n');
         }
 
         let parts = [];
@@ -527,7 +523,7 @@ const EXPRESSION_SETUP_OBSERVER = `(() => {
         if (cmd) parts.push(cmd);
         if (answer) parts.push(answer);
 
-        const text = parts.join('\n\n').trim();
+        const text = parts.join('\\n\\n').trim();
         
         if (text && text !== window._agLastEmittedText && text.length > 2) {
           window._agLastEmittedText = text;
@@ -834,6 +830,10 @@ class CdpBridge {
 
     try {
       const res = await this.send('Runtime.evaluate', params);
+      if (res && res.exceptionDetails) {
+        console.error('[CDP-EVAL-EXCEPTION]', res.exceptionDetails.text, 'Line:', res.exceptionDetails.lineNumber, 'EXPR:', params.expression.slice(0, 80));
+        return { ok: false, error: res.exceptionDetails.text, details: res.exceptionDetails };
+      }
       return res && res.result ? res.result.value : null;
     } catch (err) {
       return { ok: false, error: err.message };
