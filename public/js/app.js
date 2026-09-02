@@ -263,7 +263,11 @@ function handleWsEvent(msg) {
       const lastMsg = state.messages[state.messages.length - 1];
       if (!lastMsg || lastMsg.text !== msg.payload.text || lastMsg.from !== msg.payload.from) {
         state.messages.push(msg.payload);
-        appendMessageUI(msg.payload);
+        if (!state.searchQuery) {
+          loadSnapshot();
+        } else {
+          appendMessageUI(msg.payload);
+        }
       }
       break;
 
@@ -483,7 +487,7 @@ function updateActionsUI(actions) {
   const hasPrompt = !!actions.permissionPrompt;
   const hasButtons = actions.pendingButtons && actions.pendingButtons.length > 0;
 
-  if (hasPrompt || hasButtons) {
+  if (hasPrompt && hasButtons) {
     elements.actionPromptCard.style.display = 'flex';
     elements.actionPromptCard.style.flexDirection = 'column';
     if (elements.actionTitle) {
@@ -842,11 +846,21 @@ window.copyCode = function(btn) {
 // ----------------------------------------------------------------------
 function renderMessages() {
   if (!elements.chatViewport) return;
-  elements.chatViewport.innerHTML = '';
 
-  const filtered = state.searchQuery
-    ? state.messages.filter(m => m.text.toLowerCase().includes(state.searchQuery.toLowerCase()))
-    : state.messages;
+  if (!state.searchQuery) {
+    let cc = document.getElementById('chatContent');
+    if (!cc) {
+      elements.chatViewport.innerHTML = '<div class="chat-content" id="chatContent"></div>';
+      elements.chatContent = document.getElementById('chatContent');
+      if (typeof setupChatContentInteractions === 'function') setupChatContentInteractions();
+    }
+    loadSnapshot();
+    return;
+  }
+
+  // Active Search Filter View
+  elements.chatViewport.innerHTML = '';
+  const filtered = state.messages.filter(m => m.text.toLowerCase().includes(state.searchQuery.toLowerCase()));
 
   if (elements.searchCount) {
     elements.searchCount.textContent = `${filtered.length}/${state.messages.length}`;
@@ -855,8 +869,7 @@ function renderMessages() {
   if (filtered.length === 0) {
     elements.chatViewport.innerHTML = `
       <div style="text-align:center; padding: 40px 20px; color:var(--text-tertiary);">
-        <div style="font-family:var(--font-display); font-size:16px; font-weight:700; color:var(--text-primary); margin-bottom:4px;">GravityRem3 Ready</div>
-        <div style="font-size:12.5px;">Connected directly to Antigravity IDE (${state.activeTarget.toUpperCase()}). Tap header to open Suite Drawer.</div>
+        <div style="font-size:13px;">No messages matching "${escapeHtml(state.searchQuery)}"</div>
       </div>
     `;
     return;
@@ -916,6 +929,10 @@ window.loadEarlierMessages = function() {
 
 function appendMessageUI(msg, scroll = true) {
   if (!elements.chatViewport) return;
+  if (!state.searchQuery) {
+    loadSnapshot();
+    return;
+  }
 
   const isUser = msg.from === "user";
   const row = document.createElement("div");

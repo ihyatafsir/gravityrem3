@@ -403,7 +403,7 @@ html, body {
   flex: 1;
   overflow-y: auto;
   overflow-x: hidden;
-  padding: 8px 6px calc(var(--sab) + 215px);
+  padding: 12px 6px calc(var(--sab) + 120px);
   display: flex;
   flex-direction: column;
   position: relative;
@@ -2522,7 +2522,7 @@ pre, pre code, .terminal-body, .terminal-body code, .code-container pre, .code-c
 
 .chat-content {
   min-height: 100%;
-  padding: 4px 4px 12px;
+  padding: 14px 6px 220px;
   box-sizing: border-box;
   width: 100%;
   max-width: 100%;

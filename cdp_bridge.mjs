@@ -164,8 +164,6 @@ const EXPRESSION_DETECT_ACTIONS = `(() => {
   
   if (!permissionPrompt && questionPrompt) {
     permissionPrompt = questionPrompt.title;
-  } else if (!permissionPrompt && pendingButtons.length > 0) {
-    permissionPrompt = 'Pending Action: ' + pendingButtons.map(b => b.text).join(' | ');
   }
 
   return {
