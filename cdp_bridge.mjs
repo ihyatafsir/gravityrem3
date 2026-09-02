@@ -196,6 +196,7 @@ const EXPRESSION_GET_MODELS = `(() => {
   }
 
   const models = [
+    { id: 'gemini-3.8-flash-high', name: 'Gemini 3.8 Flash High', tag: 'Next-Gen', desc: 'Next-gen hybrid reasoning & ultra-fast coding' },
     { id: 'gemini-3.7-flash-high', name: 'Gemini 3.7 Flash High', tag: 'Fast', desc: 'Hybrid reasoning & rapid coding' },
     { id: 'gemini-3.6-flash-medium', name: 'Gemini 3.6 Flash Medium', tag: 'Fast', desc: 'Balanced rapid agentic workflows' },
     { id: 'gemini-3.5-flash-medium', name: 'Gemini 3.5 Flash Medium', tag: 'Fast', desc: 'Lightweight high-efficiency model' },
@@ -230,6 +231,7 @@ const EXPRESSION_SELECT_MODEL_BY_NAME = (modelName) => `(async () => {
     const cleanT = t.replace(/\s+/g, ' ');
     const cleanSearch = searchName.replace(/\s+/g, ' ');
     if (cleanT.includes(cleanSearch) || cleanSearch.includes(cleanT)) return true;
+    if (searchName.includes('3.8') && t.includes('3.8')) return true;
     if (searchName.includes('3.7') && t.includes('3.7')) return true;
     if (searchName.includes('sonnet') && t.includes('sonnet')) return true;
     if (searchName.includes('opus') && t.includes('opus')) return true;

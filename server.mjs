@@ -3,6 +3,7 @@ import { WebSocketServer } from 'ws';
 import { createServer } from 'http';
 import { networkInterfaces, cpus, totalmem, freemem, uptime } from 'os';
 import { mkdir, readFile, writeFile, rename, readdir, stat } from 'fs/promises';
+import fs from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { exec } from 'child_process';

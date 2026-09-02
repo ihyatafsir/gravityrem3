@@ -8,7 +8,7 @@
 
 - ⚡ **Real-Time Agent Stream**: Live terminal output, agent thought processes, and plan generation streaming.
 - 🎯 **Action Approval & Control**: One-click permission prompt approvals, Auto-Accept toggles, and task interruption.
-- 🎛️ **Dynamic Model Switcher**: Hot-swap active AI models (Gemini 3.7 Flash, Claude Sonnet 4.6 Thinking, Opus 4.6, GPT-OSS 120B, etc.) on the fly.
+- 🎛️ **Dynamic Model Switcher**: Hot-swap active AI models (Gemini 3.8 Flash, Gemini 3.7 Flash, Claude Sonnet 4.6 Thinking, Opus 4.6, GPT-OSS 120B, etc.) on the fly.
 - 🖥️ **Dedicated Remote AI Workstation**: Designed to run directly alongside Antigravity IDE in headless or Wayland/X11 virtual display environments.
 - 🛡️ **Zero Interference CDP Target Resolution**: Automatically filters non-IDE tabs and worker threads to lock exclusively onto the Antigravity IDE workbench (`workbench.html`).
 - 🔄 **Self-Healing Systemd Integration**: Fully persistent systemd user services with auto-restart and linger support.

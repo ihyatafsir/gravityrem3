@@ -218,7 +218,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
                     properties: {
                         target_tab: { type: 'string', description: 'Tab name to delegate to (e.g., "RewardsClaim.tsx")' },
                         task: { type: 'string', description: 'Task description to send to the agent' },
-                        model: { type: ['number', 'string'], description: 'Model to use: 0=Gemini Pro High, 1=Gemini Pro Low, 2=Gemini Flash, 3=Claude Sonnet, 4=Claude Sonnet Thinking, 5=Claude Opus Thinking, 6=GPT-OSS 120B. Can also use name or key.' },
+                        model: { type: ['number', 'string'], description: 'Model to use: 0=Gemini 3.8 Flash, 1=Gemini 3.7 Flash, 2=Gemini Pro High, 3=Gemini Pro Low, 4=Claude Sonnet Thinking, 5=Claude Opus Thinking, 6=GPT-OSS 120B. Can also use name or key.' },
                         priority: { type: 'string', enum: ['normal', 'high'], description: 'Task priority (default: normal)' },
                         timeout_ms: { type: 'number', description: 'Timeout in milliseconds (default: 300000 = 5 min)' }
                     },
@@ -420,12 +420,12 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
             case 'list_models': {
                 const models = [
-                    '0: Gemini 3 Pro (High) - key: gemini-pro-high',
-                    '1: Gemini 3 Pro (Low) - key: gemini-pro-low',
-                    '2: Gemini 3 Flash ⚡ - key: gemini-flash',
-                    '3: Claude Sonnet 4.5 - key: claude-sonnet',
-                    '4: Claude Sonnet 4.5 (Thinking) - key: claude-sonnet-thinking',
-                    '5: Claude Opus 4.5 (Thinking) 💎 - key: claude-opus-thinking',
+                    '0: Gemini 3.8 Flash ⚡ - key: gemini-3.8-flash',
+                    '1: Gemini 3.7 Flash ⚡ - key: gemini-3.7-flash',
+                    '2: Gemini 3.1 Pro (High) - key: gemini-pro-high',
+                    '3: Gemini 3.1 Pro (Low) - key: gemini-pro-low',
+                    '4: Claude Sonnet 4.6 (Thinking) - key: claude-sonnet-thinking',
+                    '5: Claude Opus 4.6 (Thinking) 💎 - key: claude-opus-thinking',
                     '6: GPT-OSS 120B (Medium) - key: gpt-oss-120b'
                 ];
                 return { content: [{ type: 'text', text: 'Available Models:\n' + models.join('\n') }] };

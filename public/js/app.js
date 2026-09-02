@@ -31,7 +31,8 @@ const state = {
 function formatShortModelName(name) {
   if (!name) return "Gemini 3.7 (High)";
   let short = "Gemini 3.7";
-  if (name.includes("3.7")) short = "Gemini 3.7";
+  if (name.includes("3.8")) short = "Gemini 3.8";
+  else if (name.includes("3.7")) short = "Gemini 3.7";
   else if (name.includes("3.6")) short = "Gemini 3.6";
   else if (name.includes("3.5")) short = "Gemini 3.5";
   else if (name.includes("3.1")) short = "3.1 Pro";
@@ -50,6 +51,17 @@ function formatShortModelName(name) {
 }
 
 const MODEL_FAMILIES = [
+  {
+    id: "gemini-3.8-flash",
+    name: "Gemini 3.8 Flash",
+    tag: "Next-Gen",
+    desc: "Next-generation ultra-fast hybrid reasoning & coding",
+    tiers: [
+      { id: "gemini-3.8-flash-high", name: "High", fullName: "Gemini 3.8 Flash High", desc: "Maximum hybrid reasoning (1.00)" },
+      { id: "gemini-3.8-flash-medium", name: "Medium", fullName: "Gemini 3.8 Flash Medium", desc: "Balanced reasoning & speed (0.50)" },
+      { id: "gemini-3.8-flash-low", name: "Low", fullName: "Gemini 3.8 Flash Low", desc: "Low thinking latency (0.10)" }
+    ]
+  },
   {
     id: "gemini-3.7-flash",
     name: "Gemini 3.7 Flash",
