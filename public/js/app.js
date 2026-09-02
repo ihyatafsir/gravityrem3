@@ -23,7 +23,7 @@ const state = {
   lensTimer: null,
   terminalHistory: [],
   terminalHistoryIndex: -1,
-  currentTheme: localStorage.getItem('ag_theme') || 'matrix',
+  currentTheme: (new URLSearchParams(window.location.search).get('theme')) || localStorage.getItem('ag_theme') || 'matrix',
   searchQuery: '',
   visibleLimit: 80
 };
@@ -1495,6 +1495,7 @@ window.triggerSlashCommand = function(cmd) {
 
 function renderThemesTab() {
   const themes = [
+    { id: 'gr2', name: 'GravityRemote2 Classic', desc: 'Original Phone Chat VS Code Dark+ slate aesthetic', color: '#22c55e' },
     { id: 'matrix', name: 'Matrix Emerald', desc: 'Neon green cyberpunk aesthetic', color: '#10b981' },
     { id: 'cyber', name: 'Cyber Cyan', desc: 'Electric blue and cyan highlights', color: '#06b6d4' },
     { id: 'oled', name: 'OLED Obsidian', desc: 'True pitch-black pure contrast', color: '#64748b' },
@@ -1524,7 +1525,7 @@ function renderThemesTab() {
 
   themes.forEach(th => {
     html += `
-      <div class="theme-card ${state.activeTheme === th.id ? 'active' : ''}" onclick="selectTheme('${th.id}')" style="display:flex; align-items:center; justify-content:space-between; padding:10px 14px;">
+      <div class="theme-card ${state.currentTheme === th.id ? 'active' : ''}" onclick="selectTheme('${th.id}')" style="display:flex; align-items:center; justify-content:space-between; padding:10px 14px;">
         <div style="display:flex; align-items:center; gap:10px;">
           <div style="width:10px; height:10px; border-radius:50%; background:${th.color}; box-shadow:0 0 8px ${th.color};"></div>
           <div>
@@ -1532,7 +1533,7 @@ function renderThemesTab() {
             <div style="font-size:10.5px; color:var(--text-tertiary);">${th.desc}</div>
           </div>
         </div>
-        ${state.activeTheme === th.id ? '<span style="color:var(--emerald-glow); font-size:13px; font-weight:700;">Active</span>' : ''}
+        ${state.currentTheme === th.id ? '<span style="color:var(--emerald-glow); font-size:13px; font-weight:700;">Active</span>' : ''}
       </div>
     `;
   });
