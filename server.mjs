@@ -265,8 +265,8 @@ app.get(['/api/snapshot', '/snapshot'], async (req, res) => {
 
 // 0.1 Remote Interactive Click (Expands/Collapses Tool Steps, Commands, Thoughts in IDE)
 app.post(['/api/remote-click', '/remote-click'], async (req, res) => {
-  const { selector, index, textContent, testId, ariaLabel, tagName } = req.body || {};
-  const result = await cdpBridge.clickElement({ selector, index, textContent, testId, ariaLabel, tagName });
+  const { remoteId, selector, index, textContent, testId, ariaLabel, tagName } = req.body || {};
+  const result = await cdpBridge.clickElement({ remoteId, selector, index, textContent, testId, ariaLabel, tagName });
   
   // Fast burst capture to sync toggled UI immediately
   setTimeout(() => cdpBridge.captureSnapshot(true), 150);

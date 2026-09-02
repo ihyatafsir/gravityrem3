@@ -2535,7 +2535,13 @@ function setupChatContentInteractions() {
     const isWorkedFor = /Worked for/i.test(firstLine) || testId === 'worked-for-collapsible';
     const isTool = /^(Ran|Explored|Running|Run)\b/i.test(firstLine);
 
-    if (!isThought && !isWorkedFor && !isTool && !testId) return;
+    // Check if target or parent has a stamped remote ID
+    const remoteId = targetEl.getAttribute('data-remote-id') || 
+                     targetEl.closest('[data-remote-id]')?.getAttribute('data-remote-id') || 
+                     targetEl.querySelector('[data-remote-id]')?.getAttribute('data-remote-id') || 
+                     undefined;
+
+    if (!isThought && !isWorkedFor && !isTool && !testId && !remoteId) return;
 
     e.preventDefault();
     e.stopPropagation();
@@ -2547,6 +2553,14 @@ function setupChatContentInteractions() {
       targetEl.style.opacity = '1';
       targetEl.style.transform = '';
     }, 180);
+
+    // Optimistic toggle of aria-expanded state for instant UI response
+    const curExp = targetEl.getAttribute('aria-expanded');
+    if (curExp === 'false') {
+      targetEl.setAttribute('aria-expanded', 'true');
+    } else if (curExp === 'true') {
+      targetEl.setAttribute('aria-expanded', 'false');
+    }
 
     let matchIndex = 0;
     try {
@@ -2564,6 +2578,7 @@ function setupChatContentInteractions() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          remoteId,
           testId: testId || undefined,
           ariaLabel: ariaLabel || undefined,
           tagName,
@@ -2572,9 +2587,10 @@ function setupChatContentInteractions() {
         })
       });
 
-      setTimeout(loadSnapshot, 150);
-      setTimeout(loadSnapshot, 450);
-      setTimeout(loadSnapshot, 900);
+      setTimeout(loadSnapshot, 120);
+      setTimeout(loadSnapshot, 350);
+      setTimeout(loadSnapshot, 750);
+      setTimeout(loadSnapshot, 1400);
     } catch(err) {
       console.warn('[Remote Click Error]:', err);
     }

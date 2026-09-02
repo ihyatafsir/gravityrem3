@@ -633,6 +633,12 @@ const CAPTURE_SCRIPT = `(() => {
     scrollPercent: scrollContainer.scrollTop / (scrollContainer.scrollHeight - scrollContainer.clientHeight) || 0
   };
   
+  // Stamp unique remote IDs on all interactive elements in the live IDE DOM
+  const interactives = cascade.querySelectorAll('button, [role="button"], [data-testid], a, summary');
+  interactives.forEach((el, idx) => {
+    el.setAttribute('data-remote-id', 'ag-btn-' + idx);
+  });
+
   // Keep only the last ~50 message blocks for mobile memory optimization
   const clone = cascade.cloneNode(true);
   const scrollContainerClone = clone.querySelector('.overflow-y-auto, [data-scroll-area]') || clone;
@@ -1680,15 +1686,23 @@ class CdpBridge {
     }
   }
 
-  async clickElement({ selector, index = 0, textContent, testId, ariaLabel, tagName }) {
-    const payloadJson = JSON.stringify({ selector, index, textContent, testId, ariaLabel, tagName });
+  async clickElement({ remoteId, selector, index = 0, textContent, testId, ariaLabel, tagName }) {
+    const payloadJson = JSON.stringify({ remoteId, selector, index, textContent, testId, ariaLabel, tagName });
     const EXP = `(async () => {
       try {
         const req = ${payloadJson};
         let candidates = [];
 
+        // 0. Match by exact remoteId (100% deterministic 1-to-1 mapping)
+        if (req.remoteId) {
+          const exact = document.querySelector('[data-remote-id="' + req.remoteId + '"]');
+          if (exact) {
+            candidates = [exact];
+          }
+        }
+
         // 1. Match by testId (e.g. worked-for-collapsible)
-        if (req.testId) {
+        if (candidates.length === 0 && req.testId) {
           candidates = Array.from(document.querySelectorAll('[data-testid="' + req.testId + '"]'))
             .filter(el => el.offsetParent !== null);
         }
@@ -1744,11 +1758,15 @@ class CdpBridge {
         }
 
         target.focus?.();
-        target.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, cancelable: true, view: window }));
-        target.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, view: window }));
-        target.dispatchEvent(new MouseEvent('pointerup', { bubbles: true, cancelable: true, view: window }));
-        target.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true, view: window }));
+        const opts = { bubbles: true, cancelable: true, view: window, buttons: 1 };
+        target.dispatchEvent(new PointerEvent('pointerdown', opts));
+        target.dispatchEvent(new MouseEvent('mousedown', opts));
+        target.dispatchEvent(new PointerEvent('pointerup', opts));
+        target.dispatchEvent(new MouseEvent('mouseup', opts));
         target.click();
+
+        // Await next tick so React/Radix UI state transition resolves
+        await new Promise(r => setTimeout(r, 80));
 
         return {
           success: true,
