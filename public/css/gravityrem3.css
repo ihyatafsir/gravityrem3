@@ -30,6 +30,10 @@
   --purple-dim: rgba(168, 85, 247, 0.15);
   --purple-glow: #c084fc;
   
+  --deep-green: #15803d;
+  --deep-green-glow: #22c55e;
+  --deep-green-dim: rgba(21, 128, 61, 0.2);
+  
   --text-pure: #ffffff;
   --text-primary: #f1f5f9;
   --text-secondary: #94a3b8;
@@ -313,8 +317,8 @@ html, body {
 }
 
 .indicator-dot.vm {
-  background: var(--purple-glow);
-  box-shadow: 0 0 6px var(--purple-glow);
+  background: var(--deep-green);
+  box-shadow: 0 0 7px var(--deep-green-glow);
 }
 
 .model-tag {
@@ -362,8 +366,8 @@ html, body {
 }
 
 .pulse-dot.busy {
-  background: var(--purple-glow);
-  box-shadow: 0 0 10px var(--purple-glow);
+  background: var(--deep-green);
+  box-shadow: 0 0 10px var(--deep-green-glow), 0 0 4px #16a34a;
   animation: pulseFast 0.8s infinite ease-in-out;
 }
 
