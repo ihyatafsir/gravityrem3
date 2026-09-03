@@ -2831,15 +2831,15 @@ table th, table td {
 }
 
 #chatContent [class*="text-muted-foreground"]:not(.artifact-card *):not([data-testid="worked-for-collapsible"] *) {
-  color: #94a3b8 !important;
+  color: rgba(148, 163, 184, 0.70) !important;
 }
 
 #chatContent [class*="text-secondary-foreground"]:not(.artifact-card *):not([data-testid="worked-for-collapsible"] *) {
-  color: #e2e8f0 !important;
+  color: rgba(226, 232, 240, 0.85) !important;
 }
 
 /* ==========================================================================
-   ◆ GravityRemote2 Phone Chat Typography & Silky Smooth Hardware-Accelerated Styling
+   ◆ GravityRemote2 Phone Chat Typography & Sophisticated Text Transparency
    ========================================================================== */
 #chatContent,
 #conversation,
@@ -2849,7 +2849,7 @@ table th, table td {
   font-size: 15px !important;
   line-height: 1.65 !important;
   letter-spacing: -0.01em !important;
-  color: #e2e8f0 !important;
+  color: rgba(226, 232, 240, 0.88) !important;
   -webkit-font-smoothing: antialiased !important;
   text-rendering: optimizeSpeed !important;
 }
@@ -2861,7 +2861,7 @@ table th, table td {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
   font-size: 15px !important;
   line-height: 1.68 !important;
-  color: #e2e8f0 !important;
+  color: rgba(226, 232, 240, 0.88) !important;
   margin-bottom: 10px !important;
 }
 
@@ -2872,7 +2872,7 @@ table th, table td {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
   font-size: 14.5px !important;
   line-height: 1.6 !important;
-  color: #cbd5e1 !important;
+  color: rgba(203, 213, 225, 0.82) !important;
   margin-bottom: 5px !important;
 }
 
@@ -2880,7 +2880,7 @@ table th, table td {
 #chatContent b,
 #conversation strong,
 #chat strong {
-  color: #ffffff !important;
+  color: rgba(255, 255, 255, 0.98) !important;
   font-weight: 700 !important;
 }
 
@@ -2888,7 +2888,7 @@ table th, table td {
 #conversation h1 {
   font-size: 20px !important;
   font-weight: 700 !important;
-  color: #ffffff !important;
+  color: rgba(255, 255, 255, 0.96) !important;
   margin: 18px 0 8px !important;
   letter-spacing: -0.02em !important;
 }
@@ -2897,7 +2897,7 @@ table th, table td {
 #conversation h2 {
   font-size: 17.5px !important;
   font-weight: 700 !important;
-  color: #ffffff !important;
+  color: rgba(255, 255, 255, 0.94) !important;
   margin: 16px 0 6px !important;
   letter-spacing: -0.015em !important;
 }
@@ -2906,7 +2906,7 @@ table th, table td {
 #conversation h3 {
   font-size: 16px !important;
   font-weight: 600 !important;
-  color: #f1f5f9 !important;
+  color: rgba(241, 245, 249, 0.90) !important;
   margin: 14px 0 4px !important;
 }
 
@@ -2914,8 +2914,15 @@ table th, table td {
 #conversation h4 {
   font-size: 15px !important;
   font-weight: 600 !important;
-  color: #f1f5f9 !important;
+  color: rgba(241, 245, 249, 0.86) !important;
   margin: 12px 0 4px !important;
+}
+
+#chatContent time,
+#chatContent [class*="text-xs"],
+#chatContent [class*="text-[10px]"],
+#chatContent [class*="text-[11px]"] {
+  color: rgba(148, 163, 184, 0.65) !important;
 }
 
 /* User Bubbles with Clean Elevation Shadows */
