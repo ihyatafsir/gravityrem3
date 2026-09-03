@@ -5,7 +5,7 @@ set -e
 VM_HOST="10.20.102.138"
 VM_USER="grem3"
 VM_PASS="bismilah"
-LOCAL_DIR="/home/absolut7/.gemini/antigravity-ide/scratch/gravityrem3/"
+LOCAL_DIR="/home/absolut7/Documents/26apps/gravityrem3/"
 REMOTE_DIR="/home/grem3/gravityrem3/"
 
 echo "🚀 Deploying GravityRem3 to ${VM_USER}@${VM_HOST}..."
