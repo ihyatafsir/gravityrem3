@@ -2494,16 +2494,42 @@ function setupChatContentInteractions() {
       }
     }
 
-    // 2. Artifact cards (green pills / artifact widgets)
-    const cardEl = e.target.closest('.artifact-card, [data-testid*="artifact"], .file-card');
-    if (cardEl && !e.target.closest('pre, code, button, .mobile-copy-btn, [role="button"]')) {
-      const titleEl = cardEl.querySelector('[data-testid*="title"], h1, h2, h3, h4, span, div');
-      const cardText = (cardEl.getAttribute('data-path') || cardEl.getAttribute('data-filename') || (titleEl ? titleEl.innerText : cardEl.innerText) || '').trim();
-      const match = cardText.match(/([a-zA-Z0-9_\-\.\/]+\.(md|markdown|js|ts|jsx|tsx|py|json|html|css|sh|txt|png|jpg|jpeg|svg|webp|log|pdf))/i);
-      if (match && match[1] && match[1].length >= 4 && !match[1].startsWith('http:') && !match[1].startsWith('https:')) {
+    // 2. Artifact cards (green pills / artifact widgets / walkthrough & plan cards)
+    const cardEl = e.target.closest('.artifact-card, [data-testid*="artifact"], .file-card, div:has(> button[draggable="true"]), button[draggable="true"]');
+    if (cardEl && !e.target.closest('pre, code, .mobile-copy-btn')) {
+      const titleEl = cardEl.querySelector('button, [data-testid*="title"], h1, h2, h3, h4, span, div');
+      const fullText = (cardEl.getAttribute('data-path') || cardEl.getAttribute('data-filename') || (titleEl ? titleEl.innerText : cardEl.innerText) || '').trim();
+      
+      let targetFile = null;
+      if (/walkthrough/i.test(fullText)) {
+        targetFile = 'walkthrough.md';
+      } else if (/implementation\s*plan/i.test(fullText)) {
+        targetFile = 'implementation_plan.md';
+      } else if (/task\s*list/i.test(fullText)) {
+        targetFile = 'task.md';
+      } else {
+        const match = fullText.match(/([a-zA-Z0-9_\-\.\/]+\.(md|markdown|js|ts|jsx|tsx|py|json|html|css|sh|txt|png|jpg|jpeg|svg|webp|log|pdf))/i);
+        if (match && match[1] && match[1].length >= 4 && !match[1].startsWith('http:') && !match[1].startsWith('https:')) {
+          targetFile = match[1];
+        }
+      }
+
+      if (targetFile) {
         e.preventDefault();
         e.stopPropagation();
-        openMobileFileViewer(match[1]);
+        haptic(25);
+        openMobileFileViewer(targetFile);
+
+        // Also trigger remote click in background if there is a remoteId so desktop IDE also opens the artifact tab
+        const remoteBtn = cardEl.querySelector('[data-remote-id]') || cardEl.closest('[data-remote-id]');
+        if (remoteBtn) {
+          const rid = remoteBtn.getAttribute('data-remote-id');
+          fetch('/api/remote-click', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ remoteId: rid })
+          }).catch(() => {});
+        }
         return;
       }
     }
