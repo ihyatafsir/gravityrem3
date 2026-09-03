@@ -634,9 +634,19 @@ const CAPTURE_SCRIPT = `(() => {
   };
   
   // Stamp unique remote IDs on all interactive elements in the live IDE DOM
+  // Preserve existing data-remote-id so it NEVER shifts when collapsibles open or close!
+  let nextId = 0;
+  cascade.querySelectorAll('[data-remote-id]').forEach(el => {
+    const raw = el.getAttribute('data-remote-id') || '';
+    const n = parseInt(raw.replace('ag-btn-', ''), 10);
+    if (!isNaN(n) && n >= nextId) nextId = n + 1;
+  });
+
   const interactives = cascade.querySelectorAll('button, [role="button"], [data-testid], a, summary');
-  interactives.forEach((el, idx) => {
-    el.setAttribute('data-remote-id', 'ag-btn-' + idx);
+  interactives.forEach((el) => {
+    if (!el.getAttribute('data-remote-id')) {
+      el.setAttribute('data-remote-id', 'ag-btn-' + (nextId++));
+    }
   });
 
   // Keep only the last ~50 message blocks for mobile memory optimization
@@ -1718,15 +1728,19 @@ class CdpBridge {
           const searchTxt = (req.textContent || '').trim().toLowerCase();
           const nlPos = searchTxt.indexOf(String.fromCharCode(10));
           const firstLine = (nlPos !== -1 ? searchTxt.substring(0, nlPos) : searchTxt).trim();
+          const isThoughtTarget = firstLine.includes('thought');
 
-          const buttonsAndInteractives = Array.from(document.querySelectorAll('button, [role="button"], div, span, summary, pre'));
+          const buttonsAndInteractives = Array.from(document.querySelectorAll('button, [role="button"], summary'));
           candidates = buttonsAndInteractives.filter(el => {
             if (el.offsetParent === null) return false;
             const elTxt = (el.innerText || el.textContent || '').trim().toLowerCase();
             if (!elTxt) return false;
+            if (isThoughtTarget) {
+              return elTxt.includes('thought');
+            }
             const elNlPos = elTxt.indexOf(String.fromCharCode(10));
             const elFirstLine = (elNlPos !== -1 ? elTxt.substring(0, elNlPos) : elTxt).trim();
-            return elFirstLine === firstLine || elTxt.includes(firstLine) || firstLine.includes(elFirstLine);
+            return elFirstLine === firstLine || (firstLine.length >= 6 && elFirstLine.includes(firstLine));
           });
         }
 
@@ -1779,16 +1793,25 @@ class CdpBridge {
       }
     })()`;
 
-    const ctxList = [this.cachedSnapshotCtxId, null, ...Array.from(this.contexts)].filter(c => c !== undefined);
+    const ctxList = [
+      this.cachedSnapshotCtxId,
+      null,
+      ...Array.from(this.contexts).map(c => typeof c === 'object' ? c.id : c)
+    ].filter((c, i, a) => c !== undefined && a.indexOf(c) === i);
+
+    let lastErr = null;
     for (const ctxId of ctxList) {
       try {
         const res = await this.evaluate(EXP, ctxId);
         if (res && res.success) {
           return res;
         }
-      } catch(e) {}
+        if (res && res.error) lastErr = res.error;
+      } catch(e) {
+        lastErr = e.message;
+      }
     }
-    return { success: false, error: 'Element click target evaluation failed' };
+    return { success: false, error: lastErr || 'Element click target evaluation failed' };
   }
 }
 

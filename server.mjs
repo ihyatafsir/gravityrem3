@@ -252,10 +252,9 @@ cdpBridge.onSnapshotUpdate = (snapshot) => {
 
 // 0.0 High-Fidelity Snapshot Endpoint
 app.get(['/api/snapshot', '/snapshot'], async (req, res) => {
-  let snap = cdpBridge.lastSnapshot;
-  if (!snap) {
-    snap = await cdpBridge.captureSnapshot(true);
-  }
+  const force = req.query.fresh === '1' || req.query.force === 'true';
+  let snap = await cdpBridge.captureSnapshot(force);
+  if (!snap) snap = cdpBridge.lastSnapshot;
   if (!snap) {
     return res.status(503).json({ ok: false, error: 'No snapshot available yet' });
   }
@@ -268,7 +267,11 @@ app.post(['/api/remote-click', '/remote-click'], async (req, res) => {
   const { remoteId, selector, index, textContent, testId, ariaLabel, tagName } = req.body || {};
   const result = await cdpBridge.clickElement({ remoteId, selector, index, textContent, testId, ariaLabel, tagName });
   
-  // Fast burst capture to sync toggled UI immediately
+  // Immediately refresh snapshot so client gets latest DOM with toggled state
+  try {
+    await cdpBridge.captureSnapshot(true);
+  } catch(e) {}
+  
   setTimeout(() => cdpBridge.captureSnapshot(true), 150);
   setTimeout(() => cdpBridge.captureSnapshot(true), 400);
   setTimeout(() => cdpBridge.captureSnapshot(true), 800);

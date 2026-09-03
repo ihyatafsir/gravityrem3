@@ -2320,7 +2320,7 @@ let userScrollLockUntil = 0;
 let lastSnapshotHash = null;
 let currentFileViewerRawContent = '';
 
-async function loadSnapshot() {
+async function loadSnapshot(fresh = false) {
   const chatContent = elements.chatContent || document.getElementById('chatContent');
   const chatViewport = elements.chatViewport || document.getElementById('chat-viewport');
   if (!chatContent || !chatViewport) return;
@@ -2328,7 +2328,8 @@ async function loadSnapshot() {
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 8000);
-    const res = await fetch('/api/snapshot', { signal: controller.signal });
+    const url = fresh ? '/api/snapshot?fresh=1' : '/api/snapshot';
+    const res = await fetch(url, { signal: controller.signal });
     clearTimeout(timeout);
 
     if (!res.ok) {
@@ -2601,7 +2602,7 @@ function setupChatContentInteractions() {
     } catch(e) {}
 
     try {
-      await fetch('/api/remote-click', {
+      const resp = await fetch('/api/remote-click', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -2613,11 +2614,16 @@ function setupChatContentInteractions() {
           index: matchIndex
         })
       });
+      const clickData = await resp.json();
+      if (clickData && clickData.success && clickData.expanded !== undefined) {
+        targetEl.setAttribute('aria-expanded', clickData.expanded);
+      }
 
-      setTimeout(loadSnapshot, 120);
-      setTimeout(loadSnapshot, 350);
-      setTimeout(loadSnapshot, 750);
-      setTimeout(loadSnapshot, 1400);
+      await loadSnapshot(true);
+      setTimeout(() => loadSnapshot(true), 120);
+      setTimeout(() => loadSnapshot(true), 350);
+      setTimeout(() => loadSnapshot(true), 750);
+      setTimeout(() => loadSnapshot(true), 1400);
     } catch(err) {
       console.warn('[Remote Click Error]:', err);
     }
