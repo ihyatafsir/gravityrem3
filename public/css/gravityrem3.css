@@ -2836,6 +2836,145 @@ table th, table td {
 }
 
 /* ==========================================================================
+   ◆ GravityRemote2 Phone Chat Typography & Luxury Shadow Effects
+   ========================================================================== */
+#chatContent,
+#conversation,
+#chat,
+#cascade {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+  font-size: 15px !important;
+  line-height: 1.65 !important;
+  letter-spacing: -0.01em !important;
+  color: #e2e8f0 !important;
+  -webkit-font-smoothing: antialiased !important;
+  text-rendering: optimizeLegibility !important;
+}
+
+#chatContent p,
+#conversation p,
+#chat p,
+#cascade p {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+  font-size: 15px !important;
+  line-height: 1.68 !important;
+  color: #e2e8f0 !important;
+  margin-bottom: 10px !important;
+}
+
+#chatContent li,
+#conversation li,
+#chat li,
+#cascade li {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+  font-size: 14.5px !important;
+  line-height: 1.6 !important;
+  color: #cbd5e1 !important;
+  margin-bottom: 5px !important;
+}
+
+#chatContent strong,
+#chatContent b,
+#conversation strong,
+#chat strong {
+  color: #ffffff !important;
+  font-weight: 700 !important;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5) !important;
+}
+
+#chatContent h1,
+#conversation h1 {
+  font-size: 20px !important;
+  font-weight: 700 !important;
+  color: #ffffff !important;
+  margin: 18px 0 8px !important;
+  text-shadow: 0 2px 6px rgba(0, 0, 0, 0.7) !important;
+  letter-spacing: -0.02em !important;
+}
+
+#chatContent h2,
+#conversation h2 {
+  font-size: 17.5px !important;
+  font-weight: 700 !important;
+  color: #ffffff !important;
+  margin: 16px 0 6px !important;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.6) !important;
+  letter-spacing: -0.015em !important;
+}
+
+#chatContent h3,
+#conversation h3 {
+  font-size: 16px !important;
+  font-weight: 600 !important;
+  color: #f1f5f9 !important;
+  margin: 14px 0 4px !important;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5) !important;
+}
+
+#chatContent h4,
+#conversation h4 {
+  font-size: 15px !important;
+  font-weight: 600 !important;
+  color: #f1f5f9 !important;
+  margin: 12px 0 4px !important;
+}
+
+/* User Bubbles with Deep Elevation Shadows */
+.optimistic-user-bubble,
+#chatContent [class*="bg-secondary"]:not(button):not(span),
+#chatContent [data-testid="user-input-step"] {
+  background: #252526 !important;
+  color: #f1f5f9 !important;
+  border: 1px solid #383838 !important;
+  border-radius: 14px !important;
+  padding: 10px 14px !important;
+  margin: 10px 4px 10px auto !important;
+  max-width: 90% !important;
+  font-size: 14.5px !important;
+  line-height: 1.5 !important;
+  word-break: break-word !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5), 0 1px 3px rgba(0, 0, 0, 0.3) !important;
+  text-align: left !important;
+  white-space: pre-wrap !important;
+}
+
+/* Terminal & Command Box Luxury Shadows */
+[class*="terminal"], pre {
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 0 1px rgba(34, 197, 94, 0.2) !important;
+  border: 1px solid #2e2e2e !important;
+  border-radius: 8px !important;
+}
+
+/* Collapsible Step Pills Enhanced Glow & Shadow */
+button[data-testid="worked-for-collapsible"],
+button[class*="tabular-nums"],
+div[role="button"][data-remote-id] {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45), inset 0 0 10px rgba(34, 197, 94, 0.08) !important;
+}
+button[data-testid="worked-for-collapsible"]:hover,
+button[class*="tabular-nums"]:hover {
+  box-shadow: 0 0 14px rgba(34, 197, 94, 0.35), 0 3px 10px rgba(0, 0, 0, 0.5) !important;
+}
+
+/* Artifact Card Luxury Glow & Deep Shadow */
+.artifact-card,
+#chatContent .artifact-card {
+  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.65), inset 0 0 14px rgba(34, 197, 94, 0.08), 0 0 1px rgba(34, 197, 94, 0.3) !important;
+}
+.artifact-card:hover,
+.artifact-card:active {
+  box-shadow: 0 0 24px rgba(34, 197, 94, 0.4), 0 8px 26px rgba(0, 0, 0, 0.75) !important;
+}
+
+/* Bottom Input Bar & Header Shadows */
+.chat-input-bar {
+  box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.75), 0 -1px 0 rgba(255, 255, 255, 0.05) !important;
+}
+.telemetry-header {
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6) !important;
+}
+
+/* ==========================================================================
    ◆ Collapsible tool steps (Ran X commands, Worked for Y, etc.)
    ========================================================================== */
 button[data-testid="worked-for-collapsible"],
