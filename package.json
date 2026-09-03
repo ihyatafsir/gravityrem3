@@ -1,6 +1,6 @@
 {
   "name": "gravityrem3",
-  "version": "3.8.3",
+  "version": "3.8.4",
   "description": "Next-Generation $7M Mobile-First Remote Controller for Google Antigravity IDE",
   "main": "server.mjs",
   "type": "module",

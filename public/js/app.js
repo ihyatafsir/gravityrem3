@@ -1788,7 +1788,27 @@ function initEventListeners() {
   if (elements.modelBtn) elements.modelBtn.addEventListener('click', openModelModal);
   if (elements.historyBtn) elements.historyBtn.addEventListener('click', openHistoryModal);
   if (elements.scrollToBottomBtn) elements.scrollToBottomBtn.addEventListener('click', scrollToBottom);
-  if (elements.chatViewport) elements.chatViewport.addEventListener('scroll', handleScrollDetection);
+  if (elements.chatViewport) {
+    elements.chatViewport.addEventListener('touchstart', () => {
+      isUserTouchingOrScrolling = true;
+    }, { passive: true });
+
+    elements.chatViewport.addEventListener('touchend', () => {
+      clearTimeout(scrollIdleTimer);
+      scrollIdleTimer = setTimeout(() => {
+        isUserTouchingOrScrolling = false;
+      }, 300);
+    }, { passive: true });
+
+    elements.chatViewport.addEventListener('scroll', () => {
+      handleScrollDetection();
+      isUserTouchingOrScrolling = true;
+      clearTimeout(scrollIdleTimer);
+      scrollIdleTimer = setTimeout(() => {
+        isUserTouchingOrScrolling = false;
+      }, 300);
+    }, { passive: true });
+  }
 
   // Search Toggle
   if (elements.searchToggleBtn) {
@@ -2320,10 +2340,18 @@ let userScrollLockUntil = 0;
 let lastSnapshotHash = null;
 let currentFileViewerRawContent = '';
 
+let isUserTouchingOrScrolling = false;
+let scrollIdleTimer = null;
+
 async function loadSnapshot(fresh = false) {
   const chatContent = elements.chatContent || document.getElementById('chatContent');
   const chatViewport = elements.chatViewport || document.getElementById('chat-viewport');
   if (!chatContent || !chatViewport) return;
+
+  // Never re-render DOM while user is actively touching or scrolling
+  if (isUserTouchingOrScrolling && !fresh) {
+    return;
+  }
 
   try {
     const controller = new AbortController();
