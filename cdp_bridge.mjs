@@ -194,13 +194,43 @@ const EXPRESSION_GET_MODELS = `(() => {
   }
 
   const models = [
-    { id: 'gemini-3.8-flash-high', name: 'Gemini 3.8 Flash High', tag: 'Next-Gen', desc: 'Next-gen hybrid reasoning & ultra-fast coding' },
-    { id: 'gemini-3.7-flash-high', name: 'Gemini 3.7 Flash High', tag: 'Fast', desc: 'Hybrid reasoning & rapid coding' },
-    { id: 'gemini-3.6-flash-medium', name: 'Gemini 3.6 Flash Medium', tag: 'Fast', desc: 'Balanced rapid agentic workflows' },
-    { id: 'gemini-3.5-flash-medium', name: 'Gemini 3.5 Flash Medium', tag: 'Fast', desc: 'Lightweight high-efficiency model' },
-    { id: 'gemini-3.1-pro-low', name: 'Gemini 3.1 Pro Low', tag: 'Deep', desc: 'Deep multi-step reasoning & planning' },
+    { id: 'gemini-4-high', name: 'Gemini 4 (High)', tag: 'Frontier 🚀', desc: 'Google frontier Gemini 4 Argon reasoning (1.00)' },
+    { id: 'gemini-4-medium', name: 'Gemini 4 (Medium)', tag: 'Frontier 🚀', desc: 'Balanced Gemini 4 Argon reasoning (0.50)' },
+    { id: 'gemini-4-low', name: 'Gemini 4 (Low)', tag: 'Frontier 🚀', desc: 'Fast Gemini 4 Argon reasoning (0.10)' },
+    { id: 'gemini-4-argon-high', name: 'Gemini 4 Argon High', tag: 'Frontier 🚀', desc: 'Maximum Argon reasoning (1.00)' },
+    { id: 'gemini-4-argon-medium', name: 'Gemini 4 Argon Medium', tag: 'Frontier 🚀', desc: 'Balanced Argon reasoning (0.50)' },
+    { id: 'gemini-4-argon-low', name: 'Gemini 4 Argon Low', tag: 'Frontier 🚀', desc: 'Fast Argon reasoning (0.10)' },
+    { id: 'claude-opus-5.5-high', name: 'Claude Opus 5.5 High', tag: 'Frontier 💎', desc: 'Maximum cognitive ceiling & frontier reasoning (1.00)' },
+    { id: 'claude-opus-5.5-medium', name: 'Claude Opus 5.5 Medium', tag: 'Frontier 💎', desc: 'Balanced frontier reasoning (0.50)' },
+    { id: 'claude-opus-5.5-low', name: 'Claude Opus 5.5 Low', tag: 'Frontier 💎', desc: 'Fast frontier reasoning (0.10)' },
+    { id: 'claude-sonnet-5.5-high', name: 'Claude Sonnet 5.5 High', tag: 'Thinking ⚡', desc: 'Anthropic deep chain-of-thought (1.00)' },
+    { id: 'claude-sonnet-5.5-medium', name: 'Claude Sonnet 5.5 Medium', tag: 'Thinking ⚡', desc: 'Balanced reasoning & frontier coding (0.50)' },
+    { id: 'claude-sonnet-5.5-low', name: 'Claude Sonnet 5.5 Low', tag: 'Thinking ⚡', desc: 'Fast thinking tier (0.10)' },
+    { id: 'gemini-3.8-flash-high', name: 'Gemini 3.8 Flash High', tag: 'Next-Gen', desc: 'Next-gen hybrid reasoning & ultra-fast coding (1.00)' },
+    { id: 'gemini-3.8-flash-medium', name: 'Gemini 3.8 Flash Medium', tag: 'Next-Gen', desc: 'Balanced reasoning & speed (0.50)' },
+    { id: 'gemini-3.8-flash-low', name: 'Gemini 3.8 Flash Low', tag: 'Next-Gen', desc: 'Low thinking latency (0.10)' },
+    { id: 'gemini-3.7-flash-high', name: 'Gemini 3.7 Flash High', tag: 'Flagship', desc: 'Flagship hybrid reasoning & rapid coding (1.00)' },
+    { id: 'gemini-3.7-flash-medium', name: 'Gemini 3.7 Flash Medium', tag: 'Flagship', desc: 'Balanced flagship reasoning (0.50)' },
+    { id: 'gemini-3.7-flash-low', name: 'Gemini 3.7 Flash Low', tag: 'Flagship', desc: 'Low thinking latency (0.10)' },
+    { id: 'gemini-3.6-flash-high', name: 'Gemini 3.6 Flash High', tag: 'Fast', desc: 'High reasoning tier (1.00)' },
+    { id: 'gemini-3.6-flash-medium', name: 'Gemini 3.6 Flash Medium', tag: 'Fast', desc: 'Balanced reasoning & speed (0.50)' },
+    { id: 'gemini-3.6-flash-low', name: 'Gemini 3.6 Flash Low', tag: 'Fast', desc: 'Low thinking latency (0.10)' },
+    { id: 'gemini-3.1-pro-high', name: 'Gemini 3.1 Pro High', tag: 'Deep', desc: 'Deep multi-step reasoning & planning (1.00)' },
+    { id: 'gemini-3.1-pro-low', name: 'Gemini 3.1 Pro Low', tag: 'Deep', desc: 'Deep multi-step reasoning low latency (0.10)' },
+    { id: 'gemini-3.0-pro-high', name: 'Gemini 3.0 Pro High', tag: 'Enterprise', desc: 'Complex systems & enterprise architecture' },
+    { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash', tag: 'Fast', desc: 'High-speed execution & low latency' },
+    { id: 'gemini-2.5-pro', name: 'Gemini 2.5 Pro', tag: 'Deep', desc: 'Advanced multimodal context & reasoning' },
+    { id: 'claude-3.7-sonnet-thinking', name: 'Claude 3.7 Sonnet (Thinking)', tag: 'Flagship', desc: 'Anthropic hybrid reasoning & deep CoT' },
+    { id: 'claude-3.7-sonnet', name: 'Claude 3.7 Sonnet', tag: 'Flagship', desc: 'Anthropic frontier coding & standard latency' },
     { id: 'claude-sonnet-4.6-thinking', name: 'Claude Sonnet 4.6 (Thinking)', tag: 'Thinking', desc: 'Anthropic deep chain-of-thought' },
-    { id: 'claude-opus-4.6-thinking', name: 'Claude Opus 4.6 (Thinking)', tag: 'Frontier', desc: 'Maximum architecture capability' },
+    { id: 'claude-opus-4.6-thinking', name: 'Claude Opus 4.6 (Thinking)', tag: 'Frontier', desc: 'Maximum architecture capability & cognitive ceiling' },
+    { id: 'claude-3.5-haiku', name: 'Claude 3.5 Haiku', tag: 'Lightning', desc: 'Near-instantaneous lightweight execution' },
+    { id: 'deepseek-r1-thinking', name: 'DeepSeek R1 (Thinking)', tag: 'Reasoning', desc: 'Open frontier reasoning, mathematics & logic' },
+    { id: 'deepseek-v3-fast', name: 'DeepSeek V3 (Fast)', tag: 'MoE', desc: '671B MoE frontier generalist model' },
+    { id: 'openai-o3-mini-high', name: 'OpenAI o3-mini High', tag: 'Reasoning', desc: 'High-effort STEM & algorithmic reasoning' },
+    { id: 'openai-o3-mini-medium', name: 'OpenAI o3-mini Medium', tag: 'Reasoning', desc: 'Balanced STEM & coding reasoning' },
+    { id: 'openai-o1-thinking', name: 'OpenAI o1 (Thinking)', tag: 'Frontier', desc: 'Full chain-of-thought frontier reasoning' },
+    { id: 'openai-gpt-4o', name: 'GPT-4o (Omni)', tag: 'Omni', desc: 'OpenAI flagship multimodal architecture' },
     { id: 'gpt-oss-120b-medium', name: 'GPT-OSS 120B (Medium)', tag: 'OSS', desc: 'Open-weights dense transformer' }
   ];
 
@@ -211,7 +241,7 @@ const EXPRESSION_GET_MODELS = `(() => {
 })()`;
 
 const EXPRESSION_SELECT_MODEL_BY_NAME = (modelName) => `(async () => {
-  const searchName = ${JSON.stringify(modelName.toLowerCase())};
+  const raw = ${JSON.stringify(modelName.toLowerCase())};
   const modelBtn = document.querySelector('button[data-testid="model-selector-trigger"]') ||
                    Array.from(document.querySelectorAll('button, [role="button"]')).find(b => {
     const aria = (b.getAttribute('aria-label') || '').toLowerCase();
@@ -222,40 +252,71 @@ const EXPRESSION_SELECT_MODEL_BY_NAME = (modelName) => `(async () => {
 
   modelBtn.focus();
   modelBtn.click();
-  await new Promise(r => setTimeout(r, 600));
+  await new Promise(r => setTimeout(r, 400));
 
-  const items = Array.from(document.querySelectorAll('div[role="menuitem"], div[role="option"], [role="menuitem"]'));
-  const match = items.find(el => {
+  const menus = Array.from(document.querySelectorAll('div[role="menu"]'));
+  const mainMenu = menus[0];
+  if (!mainMenu) return { ok: false, error: 'no_menu' };
+
+  const items = Array.from(mainMenu.querySelectorAll('div[role="menuitem"]'));
+  
+  // Find matching family
+  let match = items.find(el => {
     const t = (el.innerText || '').toLowerCase();
-    if (t.includes(searchName)) return true;
-    if (searchName.includes('3.8') && t.includes('3.8')) return true;
-    if (searchName.includes('3.7') && t.includes('3.7')) return true;
-    if (searchName.includes('3.6') && t.includes('3.6')) return true;
-    if (searchName.includes('3.5') && t.includes('3.5')) return true;
-    if (searchName.includes('3.1') && t.includes('3.1')) return true;
-    if (searchName.includes('sonnet') && t.includes('sonnet')) return true;
-    if (searchName.includes('opus') && t.includes('opus')) return true;
-    if (searchName.includes('gpt') && t.includes('gpt')) return true;
-    return false;
+    if (raw.includes('opus 5.5') || raw.includes('opus-5.5')) return t.includes('opus 5.5') || t.includes('opus');
+    if (raw.includes('sonnet 5.5') || raw.includes('sonnet-5.5')) return t.includes('sonnet 5.5') || t.includes('sonnet');
+    if (raw.includes('opus')) return t.includes('opus');
+    if (raw.includes('sonnet')) return t.includes('sonnet');
+    if (raw.includes('3.8')) return t.includes('3.8');
+    if (raw.includes('3.7')) return t.includes('3.7');
+    if (raw.includes('3.6')) return t.includes('3.6');
+    if (raw.includes('3.1')) return t.includes('3.1');
+    if (raw.includes('oss') || raw.includes('gpt')) return t.includes('oss') || t.includes('gpt');
+    return t.includes(raw);
   });
 
-  if (match) {
+  if (!match) {
     try {
-      match.focus();
-      match.click();
-    } catch(e) {
-      match.click();
-    }
-    await new Promise(r => setTimeout(r, 400));
-    return { ok: true, selected: searchName };
+      document.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, key: 'Escape', code: 'Escape' }));
+    } catch(e) {}
+    return { ok: false, error: 'family_not_found', selected: raw };
   }
 
-  // Close with Escape if not found
-  try {
-    document.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, key: 'Escape', code: 'Escape' }));
-  } catch(e) {}
+  // Determine requested tier: 'high', 'medium', 'low'
+  let tier = null;
+  if (raw.includes('high')) tier = 'High';
+  else if (raw.includes('low')) tier = 'Low';
+  else if (raw.includes('medium') || raw.includes('med')) tier = 'Medium';
 
-  return { ok: false, error: 'menu_item_not_found' };
+  if (tier) {
+    // Hover over match to open tier submenu
+    const rect = match.getBoundingClientRect();
+    match.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true, clientX: rect.x + 10, clientY: rect.y + 10 }));
+    match.dispatchEvent(new MouseEvent('mousemove', { bubbles: true, clientX: rect.x + 10, clientY: rect.y + 10 }));
+    await new Promise(r => setTimeout(r, 400));
+
+    const allMenus = Array.from(document.querySelectorAll('div[role="menu"]'));
+    if (allMenus.length > 1) {
+      const subMenu = allMenus[allMenus.length - 1];
+      const tierItems = Array.from(subMenu.querySelectorAll('div[role="menuitem"], .action-item, div'));
+      const tierMatch = tierItems.find(el => (el.innerText || '').trim().toLowerCase() === tier.toLowerCase());
+      if (tierMatch) {
+        tierMatch.click();
+        await new Promise(r => setTimeout(r, 300));
+        return { ok: true, selected: raw, tier: tier };
+      }
+    }
+  }
+
+  // Fallback: direct click on family item (selects default/current tier)
+  try {
+    match.focus();
+    match.click();
+  } catch(e) {
+    match.click();
+  }
+  await new Promise(r => setTimeout(r, 300));
+  return { ok: true, selected: raw, direct: true };
 })()`;
 
 const EXPRESSION_CLICK_BUTTON_BY_TEXT = (targetText) => `(() => {
@@ -1060,7 +1121,9 @@ class CdpBridge {
           return '';
         })()`);
         if (curModelRes && typeof curModelRes === 'string' && curModelRes.length > 0) {
-          this.activeModelName = curModelRes;
+          if (!/argon|gemini[\s-]*4\b/i.test(this.activeModelName)) {
+            this.activeModelName = curModelRes;
+          }
         }
         const isBusy = !!(busyRes && busyRes.busy);
         
@@ -1236,7 +1299,15 @@ class CdpBridge {
   }
 
   async selectModel(name) {
-    return await this.evaluate(EXPRESSION_SELECT_MODEL_BY_NAME(name));
+    if (/argon|gemini[\s-]*4\b/i.test(name)) {
+      this.activeModelName = name;
+      return { ok: true, selected: name, cli: true };
+    }
+    const res = await this.evaluate(EXPRESSION_SELECT_MODEL_BY_NAME(name));
+    if (res && res.ok) {
+      this.activeModelName = name;
+    }
+    return res;
   }
 
   async setModel(index = 0) {

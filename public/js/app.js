@@ -18,6 +18,7 @@ const state = {
   userScrolledUp: false,
   drawerActiveTab: 'plan',
   agFeatures: null,
+  overage: { enabled: false, toggling: false, available: true },
   messageQueue: [],
   lensAutoRefreshInterval: 0,
   lensTimer: null,
@@ -28,22 +29,52 @@ const state = {
   visibleLimit: 80
 };
 
+// Gemini 4 / Argon exists behind the agy CLI engine.
+function isCliModel(name) {
+  return /argon|gemini[\s-]*4\b/i.test(name || "");
+}
+
+function cliModelId(name) {
+  const str = (name || '').toLowerCase();
+  let tier = 'high';
+  if (str.includes('low')) tier = 'low';
+  else if (str.includes('med') || str.includes('medium')) tier = 'medium';
+  else if (str.includes('high')) tier = 'high';
+  return `gemini-4-argon-${tier}`;
+}
+
 function formatShortModelName(name) {
-  if (!name) return "Gemini 3.7 (High)";
-  let short = "Gemini 3.7";
-  if (name.includes("3.8")) short = "Gemini 3.8";
+  if (!name) return "Gemini 4 (High)";
+  let short = "Gemini 4";
+  const isCli = /gemini[\s-]*4|argon/i.test(name || "");
+  if (/gemini[\s-]*4/i.test(name) || /argon/i.test(name)) short = "Gemini 4";
+  else if (name.includes("Opus 5.5") || (name.includes("Opus") && name.includes("5.5"))) short = "Opus 5.5";
+  else if (name.includes("Sonnet 5.5") || (name.includes("Sonnet") && name.includes("5.5"))) short = "Sonnet 5.5";
+  else if (name.includes("3.8")) short = "Gemini 3.8";
+  else if (name.includes("3.7") && name.includes("Sonnet")) short = "Sonnet 3.7";
   else if (name.includes("3.7")) short = "Gemini 3.7";
   else if (name.includes("3.6")) short = "Gemini 3.6";
+  else if (name.includes("3.5") && name.includes("Haiku")) short = "Haiku 3.5";
   else if (name.includes("3.5")) short = "Gemini 3.5";
   else if (name.includes("3.1")) short = "3.1 Pro";
+  else if (name.includes("3.0")) short = "3.0 Pro";
+  else if (name.includes("2.5") && name.includes("Pro")) short = "Gemini 2.5P";
+  else if (name.includes("2.5")) short = "Gemini 2.5F";
+  else if (name.includes("R1") || name.includes("r1")) short = "DeepSeek R1";
+  else if (name.includes("V3") || name.includes("v3")) short = "DeepSeek V3";
+  else if (name.includes("o3")) short = "o3-mini";
+  else if (name.includes("o1-mini")) short = "o1-mini";
+  else if (name.includes("o1")) short = "o1";
+  else if (name.includes("4o-mini")) short = "GPT-4o mini";
+  else if (name.includes("4o")) short = "GPT-4o";
   else if (name.includes("Sonnet")) short = "Sonnet 4.6";
   else if (name.includes("Opus")) short = "Opus 4.6";
-  else if (name.includes("GPT")) short = "GPT-OSS";
+  else if (name.includes("GPT-OSS") || name.includes("120B")) short = "GPT-OSS";
   else short = name.split(" ")[0];
 
   let tier = "";
   if (/high/i.test(name)) tier = "High";
-  else if (/medium/i.test(name)) tier = "Med";
+  else if (/medium|med/i.test(name)) tier = "Med";
   else if (/low/i.test(name)) tier = "Low";
   else if (/thinking/i.test(name)) tier = "Think";
 
@@ -51,6 +82,52 @@ function formatShortModelName(name) {
 }
 
 const MODEL_FAMILIES = [
+  {
+    id: "gemini-4",
+    name: "Gemini 4",
+    tag: "Frontier 🚀",
+    desc: "Google frontier Gemini 4 (Argon) flagship reasoning engine with deep multi-pass logic.",
+    cli: true,
+    tiers: [
+      { id: "gemini-4-high", name: "High", fullName: "Gemini 4 (High)", desc: "Maximum Gemini 4 reasoning (1.00)" },
+      { id: "gemini-4-medium", name: "Medium", fullName: "Gemini 4 (Medium)", desc: "Balanced Gemini 4 reasoning (0.50)" },
+      { id: "gemini-4-low", name: "Low", fullName: "Gemini 4 (Low)", desc: "Fast Gemini 4 reasoning (0.10)" }
+    ]
+  },
+  {
+    id: "gemini-4-argon",
+    name: "Gemini 4 Argon",
+    tag: "CLI ⚡",
+    desc: "Direct Argon model identifier routed via the agy CLI engine.",
+    cli: true,
+    tiers: [
+      { id: "gemini-4-argon-high", name: "Argon High", fullName: "Gemini 4 Argon High", desc: "Maximum Argon reasoning (1.00)" },
+      { id: "gemini-4-argon-medium", name: "Argon Medium", fullName: "Gemini 4 Argon Medium", desc: "Balanced Argon reasoning (0.50)" },
+      { id: "gemini-4-argon-low", name: "Argon Low", fullName: "Gemini 4 Argon Low", desc: "Fast Argon reasoning (0.10)" }
+    ]
+  },
+  {
+    id: "claude-opus-5.5",
+    name: "Claude Opus 5.5",
+    tag: "Frontier 💎",
+    desc: "Anthropic flagship reasoning ceiling & complex system design",
+    tiers: [
+      { id: "claude-opus-5.5-high", name: "High", fullName: "Claude Opus 5.5 High", desc: "Maximum cognitive ceiling (1.00)" },
+      { id: "claude-opus-5.5-medium", name: "Medium", fullName: "Claude Opus 5.5 Medium", desc: "Balanced frontier reasoning (0.50)" },
+      { id: "claude-opus-5.5-low", name: "Low", fullName: "Claude Opus 5.5 Low", desc: "Fast frontier reasoning (0.10)" }
+    ]
+  },
+  {
+    id: "claude-sonnet-5.5",
+    name: "Claude Sonnet 5.5",
+    tag: "Thinking ⚡",
+    desc: "Anthropic frontier reasoning & deep chain-of-thought coding",
+    tiers: [
+      { id: "claude-sonnet-5.5-high", name: "High", fullName: "Claude Sonnet 5.5 High", desc: "Deep chain-of-thought reasoning (1.00)" },
+      { id: "claude-sonnet-5.5-medium", name: "Medium", fullName: "Claude Sonnet 5.5 Medium", desc: "Balanced reasoning & coding (0.50)" },
+      { id: "claude-sonnet-5.5-low", name: "Low", fullName: "Claude Sonnet 5.5 Low", desc: "Low latency thinking (0.10)" }
+    ]
+  },
   {
     id: "gemini-3.8-flash",
     name: "Gemini 3.8 Flash",
@@ -77,22 +154,11 @@ const MODEL_FAMILIES = [
     id: "gemini-3.6-flash",
     name: "Gemini 3.6 Flash",
     tag: "Fast",
-    desc: "Balanced rapid agentic workflows & tool execution",
+    desc: "High-speed execution & stable low latency",
     tiers: [
-      { id: "gemini-3.6-flash-high", name: "High", fullName: "Gemini 3.6 Flash High", desc: "High reasoning tier" },
-      { id: "gemini-3.6-flash-medium", name: "Medium", fullName: "Gemini 3.6 Flash Medium", desc: "Standard medium tier" },
-      { id: "gemini-3.6-flash-low", name: "Low", fullName: "Gemini 3.6 Flash Low", desc: "Fast low latency tier" }
-    ]
-  },
-  {
-    id: "gemini-3.5-flash",
-    name: "Gemini 3.5 Flash",
-    tag: "Light",
-    desc: "Lightweight high-efficiency model",
-    tiers: [
-      { id: "gemini-3.5-flash-high", name: "High", fullName: "Gemini 3.5 Flash High", desc: "High reasoning tier" },
-      { id: "gemini-3.5-flash-medium", name: "Medium", fullName: "Gemini 3.5 Flash Medium", desc: "Balanced medium tier" },
-      { id: "gemini-3.5-flash-low", name: "Low", fullName: "Gemini 3.5 Flash Low", desc: "Low latency tier" }
+      { id: "gemini-3.6-flash-high", name: "High", fullName: "Gemini 3.6 Flash High", desc: "High reasoning tier (1.00)" },
+      { id: "gemini-3.6-flash-medium", name: "Medium", fullName: "Gemini 3.6 Flash Medium", desc: "Balanced reasoning & speed (0.50)" },
+      { id: "gemini-3.6-flash-low", name: "Low", fullName: "Gemini 3.6 Flash Low", desc: "Low thinking latency (0.10)" }
     ]
   },
   {
@@ -104,6 +170,45 @@ const MODEL_FAMILIES = [
       { id: "gemini-3.1-pro-high", name: "High", fullName: "Gemini 3.1 Pro High", desc: "Deep multi-pass reasoning" },
       { id: "gemini-3.1-pro-medium", name: "Medium", fullName: "Gemini 3.1 Pro Medium", desc: "Standard deep tier" },
       { id: "gemini-3.1-pro-low", name: "Low", fullName: "Gemini 3.1 Pro Low", desc: "Deep reasoning low latency" }
+    ]
+  },
+  {
+    id: "gpt-oss-120b",
+    name: "GPT-OSS 120B",
+    tag: "OSS",
+    desc: "Open-weights dense transformer model",
+    tiers: [
+      { id: "gpt-oss-120b-medium", name: "Medium", fullName: "GPT-OSS 120B (Medium)", desc: "Standard dense execution" }
+    ]
+  },
+  {
+    id: "gemini-3.0-pro",
+    name: "Gemini 3.0 Pro",
+    tag: "Enterprise",
+    desc: "Enterprise architecture & complex systems reasoning",
+    tiers: [
+      { id: "gemini-3.0-pro-high", name: "High", fullName: "Gemini 3.0 Pro High", desc: "High reasoning tier" },
+      { id: "gemini-3.0-pro-medium", name: "Medium", fullName: "Gemini 3.0 Pro Medium", desc: "Standard enterprise tier" }
+    ]
+  },
+  {
+    id: "gemini-2.5-flash",
+    name: "Gemini 2.5 Flash",
+    tag: "Fast",
+    desc: "High-throughput ultra-low latency execution",
+    tiers: [
+      { id: "gemini-2.5-flash-high", name: "High", fullName: "Gemini 2.5 Flash High", desc: "High reasoning tier" },
+      { id: "gemini-2.5-flash-fast", name: "Fast", fullName: "Gemini 2.5 Flash", desc: "Standard fast tier" }
+    ]
+  },
+  {
+    id: "claude-3.7-sonnet",
+    name: "Claude 3.7 Sonnet",
+    tag: "Anthropic",
+    desc: "Anthropic hybrid reasoning & frontier coding",
+    tiers: [
+      { id: "claude-3.7-sonnet-thinking", name: "Thinking", fullName: "Claude 3.7 Sonnet (Thinking)", desc: "Extended chain-of-thought" },
+      { id: "claude-3.7-sonnet-standard", name: "Standard", fullName: "Claude 3.7 Sonnet", desc: "Fast direct execution" }
     ]
   },
   {
@@ -125,12 +230,53 @@ const MODEL_FAMILIES = [
     ]
   },
   {
-    id: "gpt-oss-120b",
-    name: "GPT-OSS 120B",
-    tag: "OSS",
-    desc: "Open-weights dense transformer model",
+    id: "claude-3.5-haiku",
+    name: "Claude 3.5 Haiku",
+    tag: "Lightning",
+    desc: "Lightning-fast agentic subagent dispatch",
     tiers: [
-      { id: "gpt-oss-120b-medium", name: "Medium", fullName: "GPT-OSS 120B (Medium)", desc: "Standard dense execution" }
+      { id: "claude-3.5-haiku-fast", name: "Fast", fullName: "Claude 3.5 Haiku", desc: "Near-zero latency tier" }
+    ]
+  },
+  {
+    id: "deepseek-reasoning",
+    name: "DeepSeek R1 / V3",
+    tag: "Reasoning",
+    desc: "Open frontier reasoning, mathematics & MoE generalist",
+    tiers: [
+      { id: "deepseek-r1-thinking", name: "R1 Think", fullName: "DeepSeek R1 (Thinking)", desc: "Frontier math & reasoning CoT" },
+      { id: "deepseek-v3-fast", name: "V3 Fast", fullName: "DeepSeek V3 (Fast)", desc: "671B MoE rapid execution" }
+    ]
+  },
+  {
+    id: "openai-o3-mini",
+    name: "OpenAI o3-mini",
+    tag: "STEM",
+    desc: "High-efficiency STEM, algorithmic & coding reasoning",
+    tiers: [
+      { id: "openai-o3-mini-high", name: "High", fullName: "OpenAI o3-mini High", desc: "Maximum STEM effort" },
+      { id: "openai-o3-mini-medium", name: "Medium", fullName: "OpenAI o3-mini Medium", desc: "Balanced STEM reasoning" },
+      { id: "openai-o3-mini-low", name: "Low", fullName: "OpenAI o3-mini Low", desc: "Low latency reasoning" }
+    ]
+  },
+  {
+    id: "openai-o1",
+    name: "OpenAI o1 Series",
+    tag: "Frontier",
+    desc: "OpenAI deep chain-of-thought frontier models",
+    tiers: [
+      { id: "openai-o1-thinking", name: "o1", fullName: "OpenAI o1 (Thinking)", desc: "Deep multi-pass reasoning" },
+      { id: "openai-o1-mini", name: "o1-mini", fullName: "OpenAI o1-mini", desc: "Fast reasoning tier" }
+    ]
+  },
+  {
+    id: "openai-gpt-4o",
+    name: "OpenAI GPT-4o",
+    tag: "Omni",
+    desc: "OpenAI flagship multimodal architecture",
+    tiers: [
+      { id: "openai-gpt-4o", name: "4o", fullName: "GPT-4o (Omni)", desc: "Flagship multimodal" },
+      { id: "openai-gpt-4o-mini", name: "Mini", fullName: "GPT-4o-mini", desc: "Fast lightweight multimodal" }
     ]
   }
 ];
@@ -154,6 +300,10 @@ const elements = {
   modeIcon: document.getElementById('current-mode-icon'),
   modelBtn: document.getElementById('model-btn'),
   modelLabel: document.getElementById('current-model-label'),
+  quotaBtn: document.getElementById('quota-btn'),
+  quotaHeaderLabel: document.getElementById('quota-header-label'),
+  quotaModal: document.getElementById('quota-modal'),
+  quotaModalBody: document.getElementById('quota-modal-body'),
   historyBtn: document.getElementById('history-btn'),
   statusDot: document.getElementById('status-dot'),
   cpuStat: document.getElementById('cpu-stat'),
@@ -221,6 +371,7 @@ function connectWebSocket() {
     state.connected = true;
     updateStatus('Live', 'online');
     fetchLiveModels();
+    fetchOverageStatus();
     loadSnapshot();
   };
 
@@ -1030,7 +1181,8 @@ async function sendMessage() {
   elements.promptInput.value = '';
   elements.promptInput.style.height = '32px';
 
-  if (state.agent.busy) {
+  // CLI-routed models never queue behind IDE activity — agy is a separate process.
+  if (state.agent.busy && !isCliModel(state.activeModel)) {
     state.messageQueue.push(text);
     updateQueueUI();
     return;
@@ -1039,7 +1191,31 @@ async function sendMessage() {
   await postMessageDirect(text);
 }
 
+const CLI_BUSY_TEXT = '⏳ Gemini 4 (agy CLI) is still working on the previous turn…';
+
+async function postAgyDirect(text) {
+  appendOptimisticUserBubble(text);
+
+  try {
+    const res = await fetch('/api/agy/prompt', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text, model: cliModelId(state.activeModel) })
+    });
+    const data = await res.json();
+    if (!data.ok) {
+      console.error('[AGY_ERR]', data);
+    }
+    await loadSnapshot();
+  } catch (err) {
+    console.error('[AGY_EXCEPTION]', err);
+  }
+}
+
 async function postMessageDirect(text) {
+  if (isCliModel(state.activeModel)) {
+    return postAgyDirect(text);
+  }
   appendOptimisticUserBubble(text);
   burstLoadSnapshot();
 
@@ -1146,6 +1322,9 @@ async function renderDrawerContent() {
         break;
       case 'models':
         renderDrawerModelsTab();
+        break;
+      case 'quota':
+        renderDrawerQuotaTab();
         break;
       case 'themes':
         renderThemesTab();
@@ -1588,6 +1767,33 @@ function generateModelFamiliesHtml() {
   let html = "";
   const normActive = normalizeModelStr(state.activeModel);
 
+  // Top quick action: Quota & Reset Timers
+  html += `
+    <div style="display:flex; gap:8px; margin-bottom:10px;">
+      <button class="sheet-action-btn" onclick="openQuotaModal()" style="flex:1; display:flex; align-items:center; justify-content:center; gap:6px; padding:10px 14px; background:rgba(245,158,11,0.12); border:1px solid rgba(245,158,11,0.35); border-radius:var(--radius-xs); color:var(--text-pure); font-weight:700; font-size:12.5px; cursor:pointer;">
+        <span style="color:var(--amber-glow);">⚡</span> View Quota & Reset Timers
+      </button>
+    </div>
+  `;
+
+  // Paid AI-credit overage control: the only way past an exhausted weekly
+  // per-model bucket before it refills.
+  html += `
+    <div class="model-family-card" style="margin-bottom:10px;">
+      <div class="model-family-header">
+        <div class="model-family-title">
+          <span>Paid AI Credit Overage</span>
+          <span class="brand-version" style="font-size:8.5px; padding:1px 4px;">${state.overage.enabled ? "ON" : "OFF"}</span>
+        </div>
+      </div>
+      <div class="model-family-desc">Lets exhausted models keep running on purchased AI credits instead of being refused.</div>
+      <button class="submodel-pill ${state.overage.enabled ? "tier-high active" : "tier-low"}"
+              onclick="toggleOverage()" ${state.overage.toggling ? "disabled" : ""}>
+        ${state.overage.toggling ? "Working…" : (state.overage.enabled ? "Disable Overage" : "Enable Overage")}
+      </button>
+    </div>
+  `;
+
   MODEL_FAMILIES.forEach(fam => {
     const isFamilyActive = fam.tiers.some(t => {
       const normTier = normalizeModelStr(t.fullName);
@@ -1649,6 +1855,331 @@ function renderDrawerModelsTab() {
       ${generateModelFamiliesHtml()}
     </div>
   `;
+}
+
+// ----------------------------------------------------------------------
+// Quota & Capacity Telemetry Suite
+// ----------------------------------------------------------------------
+window.openQuotaModal = async function() {
+  haptic(20);
+  const modal = document.getElementById('quota-modal');
+  const body = document.getElementById('quota-modal-body');
+  if (modal) modal.style.display = 'flex';
+  if (body) {
+    body.innerHTML = `
+      <div style="text-align:center; padding:30px 20px; color:var(--text-tertiary);">
+        <div class="loading-spinner" style="margin: 0 auto 12px;"></div>
+        <div>Scanning Antigravity IDE logs for quota & capacity state...</div>
+      </div>
+    `;
+  }
+  await loadQuotaData();
+};
+
+window.closeQuotaModal = function() {
+  haptic(10);
+  const modal = document.getElementById('quota-modal');
+  if (modal) modal.style.display = 'none';
+};
+
+async function loadQuotaData() {
+  try {
+    const res = await fetch('/api/quota');
+    const data = await res.json();
+    renderQuotaUI(data);
+  } catch (e) {
+    const body = document.getElementById('quota-modal-body');
+    if (body) {
+      body.innerHTML = `<div style="color:var(--rose-glow); padding:16px;">Failed to fetch quota telemetry: ${e.message}</div>`;
+    }
+  }
+}
+
+function renderQuotaUI(data) {
+  const body = document.getElementById('quota-modal-body');
+  const quotaHeaderLabel = document.getElementById('quota-header-label');
+  const isExhausted = !!data.isExhausted;
+
+  if (quotaHeaderLabel) {
+    if (isExhausted) {
+      quotaHeaderLabel.textContent = 'Quota: Limit';
+    } else if (data.dailyPercentLeft !== undefined && data.weeklyPercentLeft !== undefined) {
+      quotaHeaderLabel.textContent = `Quota: ${data.dailyPercentLeft}% (D) · ${data.weeklyPercentLeft}% (W)`;
+    } else {
+      quotaHeaderLabel.textContent = 'Quota: OK';
+    }
+    const quotaIcon = document.querySelector('.quota-header-btn .quota-icon');
+    if (quotaIcon) {
+      if (isExhausted || (data.dailyPercentLeft !== undefined && data.dailyPercentLeft < 15)) {
+        quotaIcon.style.color = 'var(--rose-glow)';
+      } else if (data.dailyPercentLeft !== undefined && data.dailyPercentLeft < 40) {
+        quotaIcon.style.color = 'var(--amber-glow)';
+      } else {
+        quotaIcon.style.color = 'var(--emerald-glow)';
+      }
+    }
+  }
+
+  if (!body) return;
+
+  const resetInfo = data.resetInfo;
+  const overage = data.overage || {};
+  const recentEvents = data.recentEvents || [];
+
+  let statusCard = '';
+  if (isExhausted && resetInfo) {
+    statusCard = `
+      <div class="quota-status-banner exhausted">
+        <div class="quota-status-header">
+          <div class="quota-status-title" style="color:var(--rose-glow);">
+            <span>⚠️</span> Active Quota Limit (429)
+          </div>
+          <span class="brand-version" style="background:rgba(244,63,94,0.25); color:#fca5a5; font-size:9px; padding:2px 6px;">QUOTA EXHAUSTED</span>
+        </div>
+        <div style="font-size:12px; color:var(--text-secondary); line-height:1.45;">
+          ${data.latestActiveError?.line || 'Active quota reached on this model. Please switch to another model or enable AI credit overage.'}
+        </div>
+        <div class="quota-countdown-box" style="margin-top:6px;">
+          <div>
+            <div style="font-size:10px; color:var(--text-tertiary); text-transform:uppercase; letter-spacing:0.5px;">Estimated Reset In</div>
+            <div class="quota-countdown-val">${resetInfo.remainingFormatted}</div>
+          </div>
+          <div style="text-align:right;">
+            <div style="font-size:10px; color:var(--text-tertiary);">Reset Target</div>
+            <div style="font-size:11.5px; color:var(--text-primary); font-family:var(--font-mono);">${resetInfo.resetDateFormatted || resetInfo.resetTimestamp?.slice(0, 16)}</div>
+          </div>
+        </div>
+      </div>
+    `;
+  } else {
+    statusCard = `
+      <div class="quota-status-banner healthy">
+        <div class="quota-status-header">
+          <div class="quota-status-title" style="color:var(--emerald-glow);">
+            <span>✅</span> Quota Active & Operational
+          </div>
+          <span class="brand-version" style="background:rgba(16,185,129,0.25); color:#86efac; font-size:9px; padding:2px 6px;">OPERATIONAL 100%</span>
+        </div>
+        <div style="font-size:12.5px; color:var(--text-primary); margin-top:2px;">
+          Antigravity is streaming responses normally with <strong>0 active quota restrictions</strong>.
+        </div>
+        <div style="font-size:11.5px; color:var(--text-secondary); display:flex; flex-direction:column; gap:3px; margin-top:4px; padding-top:6px; border-top:1px solid rgba(255,255,255,0.06);">
+          <div>Active Model: <span style="color:var(--text-pure); font-weight:600;">${data.activeModel || state.activeModel}</span></div>
+          ${data.lastSuccessTime ? `<div>Last Stream 200 OK: <span style="font-family:var(--font-mono); color:var(--emerald-glow);">${data.lastSuccessTime}</span></div>` : ''}
+          ${data.lastResponseId ? `<div>Stream Response ID: <span style="font-family:var(--font-mono); font-size:10px; color:var(--text-tertiary);">${data.lastResponseId}</span></div>` : ''}
+        </div>
+      </div>
+    `;
+  }
+
+  // Daily & Weekly Allowance Cards from Language Server
+  let allowanceCards = '';
+  if (data.liveQuota && data.liveQuota.groups && data.liveQuota.groups.length > 0) {
+    allowanceCards = data.liveQuota.groups.map(group => {
+      const bucketsHtml = (group.buckets || []).map(b => {
+        const pct = b.percentage ?? (typeof b.remainingFraction === 'number' ? Math.round(b.remainingFraction * 100) : 100);
+        const tier = pct >= 40 ? 'high' : (pct >= 15 ? 'med' : 'low');
+        const resetDesc = b.description || '';
+        let resetTimeStr = '';
+        if (b.resetTime) {
+          try {
+            const d = new Date(b.resetTime);
+            resetTimeStr = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ', ' + d.toLocaleDateString([], { month: 'short', day: 'numeric' });
+          } catch(e) {}
+        }
+        return `
+          <div class="quota-bucket-card">
+            <div class="quota-bucket-top">
+              <span class="quota-bucket-label">${b.displayName}</span>
+              <span class="quota-bucket-pct ${tier}">${pct}% LEFT</span>
+            </div>
+            <div class="quota-progress-track">
+              <div class="quota-progress-fill ${tier}" style="width: ${Math.max(2, Math.min(100, pct))}%;"></div>
+            </div>
+            ${resetDesc ? `<div class="quota-bucket-desc">${resetDesc}</div>` : ''}
+            ${resetTimeStr ? `
+              <div class="quota-bucket-reset">
+                <span>Next Refresh:</span>
+                <span style="color:var(--text-primary); font-weight:600;">${resetTimeStr}</span>
+              </div>
+            ` : ''}
+          </div>
+        `;
+      }).join('');
+
+      return `
+        <div class="quota-family-group">
+          <div class="quota-family-header">
+            <div class="quota-family-title">
+              <span>⚡</span> ${group.displayName}
+            </div>
+            <span class="brand-version" style="font-size:8.5px; padding:1px 5px;">LIVE ALLOWANCE</span>
+          </div>
+          ${group.description ? `<div style="font-size:11.5px; color:var(--text-secondary); line-height:1.4;">${group.description}</div>` : ''}
+          <div style="display:flex; flex-direction:column; gap:8px;">
+            ${bucketsHtml}
+          </div>
+        </div>
+      `;
+    }).join('');
+  } else {
+    allowanceCards = `
+      <div class="quota-family-group">
+        <div class="quota-family-header">
+          <div class="quota-family-title"><span>⚡</span> Model Allowances (% Remaining)</div>
+        </div>
+        <div class="quota-bucket-card">
+          <div class="quota-bucket-top">
+            <span class="quota-bucket-label">Daily / 5-Hour Limit Remaining</span>
+            <span class="quota-bucket-pct high">${data.dailyPercentLeft ?? 100}% LEFT</span>
+          </div>
+          <div class="quota-progress-track">
+            <div class="quota-progress-fill high" style="width: ${data.dailyPercentLeft ?? 100}%;"></div>
+          </div>
+        </div>
+        <div class="quota-bucket-card">
+          <div class="quota-bucket-top">
+            <span class="quota-bucket-label">Weekly Limit Remaining</span>
+            <span class="quota-bucket-pct high">${data.weeklyPercentLeft ?? 100}% LEFT</span>
+          </div>
+          <div class="quota-progress-track">
+            <div class="quota-progress-fill high" style="width: ${data.weeklyPercentLeft ?? 100}%;"></div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  const overageCard = `
+    <div class="model-family-card" style="margin: 0;">
+      <div class="model-family-header">
+        <div class="model-family-title">
+          <span>Paid AI Credit Overage</span>
+          <span class="brand-version" style="font-size:8.5px; padding:1px 4px;">${overage.useG1Credits ? "ENABLED (ON)" : "DISABLED (OFF)"}</span>
+        </div>
+      </div>
+      <div class="model-family-desc">
+        Allows exhausted models to automatically draw from purchased Google One / Antigravity AI credits instead of blocking requests.
+      </div>
+      <div style="display:flex; gap:8px; margin-top:8px;">
+        <button class="submodel-pill ${overage.useG1Credits ? "tier-high active" : "tier-low"}"
+                onclick="toggleOverageAndReloadQuota()" style="flex:1;">
+          ${overage.useG1Credits ? "Disable Overage" : "Enable Overage"}
+        </button>
+        <a href="https://antigravity.google/g1-credits" target="_blank" class="submodel-pill tier-medium" style="text-decoration:none; text-align:center; padding:6px 12px;">
+          Buy AI Credits ↗
+        </a>
+      </div>
+    </div>
+  `;
+
+  let eventsHtml = '';
+  if (recentEvents.length > 0) {
+    eventsHtml = recentEvents.map(e => `
+      <div class="quota-event-item" style="display:flex; justify-content:space-between; align-items:flex-start; gap:8px;">
+        <div style="flex:1; min-width:0;">
+          <div><span class="quota-event-time">${e.time}</span> <span style="color:var(--text-tertiary); font-size:10px;">(${e.file})</span></div>
+          <div style="color:#cbd5e1; font-size:10.5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${e.line}</div>
+        </div>
+        <span class="brand-version" style="font-size:8px; padding:1px 4px; background:${e.resolved ? 'rgba(16,185,129,0.15)' : 'rgba(244,63,94,0.2)'}; color:${e.resolved ? '#86efac' : '#fca5a5'}; flex-shrink:0;">
+          ${e.resolved ? 'RESOLVED' : 'LIMIT'}
+        </span>
+      </div>
+    `).join('');
+  } else {
+    eventsHtml = '<div style="color:var(--text-tertiary); padding:6px 0;">No quota error logs found.</div>';
+  }
+
+  const logCard = `
+    <div class="model-family-card" style="margin: 0;">
+      <div class="model-family-header">
+        <div class="model-family-title">
+          <span>Log Archive Telemetry</span>
+          <span class="brand-version" style="font-size:8.5px; padding:1px 4px;">AUDIT TRAIL</span>
+        </div>
+        <button onclick="loadQuotaData()" class="submodel-pill tier-low" style="padding:2px 8px; font-size:10px;">
+          ↻ Refresh
+        </button>
+      </div>
+      <div class="quota-log-box" style="margin-top:6px;">
+        ${eventsHtml}
+      </div>
+    </div>
+  `;
+
+  body.innerHTML = `
+    ${statusCard}
+    ${allowanceCards}
+    ${overageCard}
+    ${logCard}
+  `;
+}
+
+window.toggleOverageAndReloadQuota = async function() {
+  await window.toggleOverage();
+  await loadQuotaData();
+};
+
+function renderDrawerQuotaTab() {
+  if (!elements.drawerBody) return;
+  elements.drawerBody.innerHTML = `
+    <div style="padding: 10px 0;">
+      <div style="font-size: 13px; font-weight: 700; color: #fff; margin-bottom: 8px;">Antigravity Quota & Model Limits</div>
+      <div id="drawer-quota-container">
+        <div style="text-align:center; padding:20px; color:var(--text-tertiary);">Loading quota state...</div>
+      </div>
+    </div>
+  `;
+  fetch('/api/quota').then(r => r.json()).then(data => {
+    const c = document.getElementById('drawer-quota-container');
+    if (!c) return;
+    const body = document.getElementById('quota-modal-body');
+    // Temporarily render inside a dummy div or render direct
+    const dummy = document.createElement('div');
+    dummy.id = 'temp-quota-holder';
+    dummy.className = 'quota-modal-body';
+    c.innerHTML = '';
+    c.appendChild(dummy);
+    const origBody = document.getElementById('quota-modal-body');
+    dummy.id = 'quota-modal-body';
+    renderQuotaUI(data);
+    dummy.id = 'drawer-quota-content';
+  }).catch(e => {
+    const c = document.getElementById('drawer-quota-container');
+    if (c) c.innerHTML = `<div style="color:var(--rose-glow); padding:10px;">Failed to load: ${e.message}</div>`;
+  });
+}
+
+window.toggleOverage = async function() {
+  haptic(30);
+  state.overage.toggling = true;
+  if (state.drawerActiveTab === 'models') renderDrawerModelsTab();
+  if (elements.modelList) elements.modelList.innerHTML = generateModelFamiliesHtml();
+
+  try {
+    const res = await fetch('/api/overage', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({})
+    });
+    const data = await res.json();
+    state.overage.enabled = !!data.useG1Credits;
+  } catch (e) {
+    console.error('[OVERAGE]', e);
+  }
+
+  state.overage.toggling = false;
+  if (state.drawerActiveTab === 'models') renderDrawerModelsTab();
+  if (elements.modelList) elements.modelList.innerHTML = generateModelFamiliesHtml();
+};
+
+async function fetchOverageStatus() {
+  try {
+    const res = await fetch('/api/overage');
+    const data = await res.json();
+    state.overage.enabled = !!data.useG1Credits;
+    state.overage.available = data.available !== false;
+  } catch (e) {}
 }
 
 window.selectModelTier = async function(modelFullName) {
@@ -1927,6 +2458,8 @@ window.addEventListener('DOMContentLoaded', () => {
   initEventListeners();
   updateModeUI();
   connectWebSocket();
+  loadQuotaData();
+  setInterval(loadQuotaData, 30000);
 });
 
 

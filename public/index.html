@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Amiri:ital,wght@0,400;0,700;1,400;1,700&family=Fira+Code:wght@400;500;600&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&family=Outfit:wght@600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/gravityrem3.css">
+  <link rel="stylesheet" href="css/gravityrem3.css?v=20261017_quota_percent_v3">
   <meta name="theme-color" content="#05080d">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -51,7 +51,13 @@
 
           <button id="model-btn" class="header-pill-btn" title="Switch Model">
             <span class="model-tag">AI</span>
-            <span id="current-model-label">Gemini 3.7</span>
+            <span id="current-model-label">Gemini 4</span>
+          </button>
+
+          <!-- Quota Status Button -->
+          <button id="quota-btn" class="header-pill-btn quota-header-btn" title="Antigravity Quota Status & Reset Timers" onclick="openQuotaModal()">
+            <span class="quota-icon" style="color:var(--amber-glow); font-size:11px;">⚡</span>
+            <span id="quota-header-label">Quota</span>
           </button>
 
           <!-- Live Status Indicator Dot -->
@@ -211,6 +217,7 @@
         <button class="drawer-tab" data-tab="daemons" onclick="switchDrawerTab('daemons')">Tasks</button>
         <button class="drawer-tab" data-tab="slash" onclick="switchDrawerTab('slash')">Slash</button>
         <button class="drawer-tab" data-tab="models" onclick="switchDrawerTab('models')">Models</button>
+        <button class="drawer-tab" data-tab="quota" onclick="switchDrawerTab('quota')">Quota</button>
         <button class="drawer-tab" data-tab="themes" onclick="switchDrawerTab('themes')">Theme</button>
       </div>
 
@@ -265,6 +272,23 @@
       </div>
       <div id="model-list" class="model-list">
         <!-- Model items rendered dynamically -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Quota Status Bottom Sheet Modal -->
+  <div id="quota-modal" class="modal-overlay">
+    <div class="sheet-content quota-sheet-content">
+      <div class="sheet-handle"></div>
+      <div class="sheet-header">
+        <div style="display:flex; align-items:center; gap:8px;">
+          <span style="font-size:16px;">⚡</span>
+          <span class="sheet-title">Antigravity Quota & Limits</span>
+        </div>
+        <button class="sheet-close" onclick="closeQuotaModal()">✕</button>
+      </div>
+      <div id="quota-modal-body" class="quota-modal-body">
+        <div style="text-align:center; padding:24px; color:var(--text-tertiary);">Scanning Antigravity logs...</div>
       </div>
     </div>
   </div>
@@ -333,6 +357,6 @@
     </div>
   </div>
 
-  <script src="js/app.js"></script>
+  <script src="js/app.js?v=20261017_quota_percent_v3"></script>
 </body>
 </html>

@@ -1,12 +1,13 @@
 import express from 'express';
 import { WebSocketServer } from 'ws';
 import { createServer } from 'http';
+import https from 'https';
 import { networkInterfaces, cpus, totalmem, freemem, uptime, homedir } from 'os';
 import { mkdir, readFile, writeFile, rename, readdir, stat } from 'fs/promises';
 import fs from 'fs';
 import { join, dirname, basename, resolve as pathResolve } from 'path';
 import { fileURLToPath } from 'url';
-import { exec } from 'child_process';
+import { exec, spawn } from 'child_process';
 import multer from 'multer';
 import { cdpBridge } from './cdp_bridge.mjs';
 
@@ -15,6 +16,119 @@ const PORT = parseInt(process.env.PORT || '8787');
 const DATA_DIR = join(__dirname, 'data');
 const STATE_FILE = join(DATA_DIR, 'state.json');
 const UPLOAD_DIR = '/tmp/ag_uploads';
+
+// ----------------------------------------------------------------------
+// Antigravity CLI (agy) integration — Gemini 4 is only reachable through
+// the CLI, never the IDE, so prompts for it are routed to `agy --print`.
+// ----------------------------------------------------------------------
+const HOME_DIR = process.env.HOME || homedir();
+const AGY_BIN = process.env.AGY_BIN || join(HOME_DIR, '.local', 'bin', 'agy');
+const AGY_SETTINGS_FILE = join(HOME_DIR, '.gemini', 'antigravity-cli', 'settings.json');
+const AGY_RUN_DIR = join(HOME_DIR, '.gemini', 'antigravity-cli');
+// Gemini 4 (Argon) — CLI only. Keyed by the model id agy accepts via --model.
+const AGY_MODELS = {
+  'gemini-4-high': { label: 'Gemini 4 (High)', effort: 'high', cliId: 'gemini-4-argon-high' },
+  'gemini-4-medium': { label: 'Gemini 4 (Medium)', effort: 'medium', cliId: 'gemini-4-argon-medium' },
+  'gemini-4-low': { label: 'Gemini 4 (Low)', effort: 'low', cliId: 'gemini-4-argon-low' },
+  'gemini-4-argon-high': { label: 'Gemini 4 Argon High', effort: 'high', cliId: 'gemini-4-argon-high' },
+  'gemini-4-argon-medium': { label: 'Gemini 4 Argon Medium', effort: 'medium', cliId: 'gemini-4-argon-medium' },
+  'gemini-4-argon-low': { label: 'Gemini 4 Argon Low', effort: 'low', cliId: 'gemini-4-argon-low' }
+};
+
+async function readAgySettings() {
+  try {
+    const raw = await readFile(AGY_SETTINGS_FILE, 'utf-8');
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch (err) {
+    return {};
+  }
+}
+
+async function overageStatus() {
+  const settings = await readAgySettings();
+  return {
+    ok: true,
+    useG1Credits: settings.useG1Credits === true,
+    settingsFile: AGY_SETTINGS_FILE,
+    settingsPresent: fs.existsSync(AGY_SETTINGS_FILE),
+    available: fs.existsSync(AGY_BIN)
+  };
+}
+
+// Toggles the paid-credit overage flag the CLI reads (Go field `useG1Credits`).
+async function setOverage(enabled) {
+  await mkdir(dirname(AGY_SETTINGS_FILE), { recursive: true });
+  const settings = await readAgySettings();
+  settings.useG1Credits = !!enabled;
+  const tempFile = `${AGY_SETTINGS_FILE}.tmp`;
+  await writeFile(tempFile, JSON.stringify(settings, null, 2));
+  await rename(tempFile, AGY_SETTINGS_FILE);
+  const status = await overageStatus();
+  broadcast('overage_state', status);
+  return status;
+}
+
+// Runs a single non-interactive `agy --print` turn and resolves with its output.
+function runAgyPrompt(promptText, modelId, timeoutMs = 180000) {
+  return new Promise((resolve) => {
+    if (!fs.existsSync(AGY_BIN)) {
+      return resolve({ ok: false, error: `agy binary not found at ${AGY_BIN}` });
+    }
+    const args = ['--print', promptText];
+    const resolvedModel = AGY_MODELS[modelId]?.cliId || modelId;
+    if (resolvedModel) args.unshift('--model', resolvedModel);
+
+    const child = spawn(AGY_BIN, args, {
+      cwd: AGY_RUN_DIR,
+      env: { ...process.env, NO_COLOR: '1' },
+      stdio: ['ignore', 'pipe', 'pipe']
+    });
+
+    let stdout = '';
+    let stderr = '';
+    let settled = false;
+    const timer = setTimeout(() => {
+      if (!settled) {
+        settled = true;
+        try { child.kill('SIGKILL'); } catch (e) {}
+        resolve({ ok: false, error: `agy timed out after ${Math.round(timeoutMs / 1000)}s`, stdout, stderr, timedOut: true });
+      }
+    }, timeoutMs);
+
+    child.stdout.on('data', (d) => { stdout += d.toString(); });
+    child.stderr.on('data', (d) => { stderr += d.toString(); });
+
+    child.on('error', (err) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      resolve({ ok: false, error: `failed to launch agy: ${err.message}` });
+    });
+
+    child.on('close', (code) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      const text = (stdout || '').trim();
+      const errText = (stderr || '').trim();
+      const combined = errText + ' ' + text;
+      // Two distinct walls: no entitlement vs no wallet balance.
+      const lowCredit = /credits balance is too low|insufficient credit|no credits|credit balance/i.test(combined);
+      const quotaMatch = combined.match(/Individual quota reached[^\n]*|quota reached[^\n]*|RESOURCE_EXHAUSTED[^\n]*/i);
+      const failed = code !== 0 || /^AGY_ERROR:/.test(text) || /^error:/m.test(errText) || /^error:/m.test(text);
+      resolve({
+        ok: !failed,
+        code,
+        text: failed ? (text || errText) : text,
+        stdout: text,
+        stderr: errText,
+        lowCredit,
+        quota: quotaMatch ? quotaMatch[0] : null
+      });
+    });
+  });
+}
 
 await mkdir(DATA_DIR, { recursive: true });
 await mkdir(UPLOAD_DIR, { recursive: true });
@@ -494,10 +608,12 @@ app.post('/api/messages', async (req, res) => {
   let promptToInject = rawUserText;
 
   const activeModelStr = (model || STATE.activeModel || '').toLowerCase();
-  if (activeModelStr.includes('high') && !promptToInject.includes('[Thinking Effort: High]')) {
+  if ((activeModelStr.includes('high') || activeModelStr.includes('thinking')) && !promptToInject.includes('[Thinking Effort:')) {
     promptToInject = `[Thinking Effort: High (1.00)] ${promptToInject}`;
-  } else if (activeModelStr.includes('low') && !promptToInject.includes('[Thinking Effort: Low]')) {
+  } else if (activeModelStr.includes('low') && !promptToInject.includes('[Thinking Effort:')) {
     promptToInject = `[Thinking Effort: Low (0.10)] ${promptToInject}`;
+  } else if (activeModelStr.includes('medium') && !promptToInject.includes('[Thinking Effort:')) {
+    promptToInject = `[Thinking Effort: Medium (0.50)] ${promptToInject}`;
   }
 
   if (mode === 'plan' && !promptToInject.startsWith('/plan') && !promptToInject.includes('[Planning Mode]')) {
@@ -613,7 +729,17 @@ app.get('/api/models', async (req, res) => {
 app.post('/api/models/select', async (req, res) => {
   const { name } = req.body;
   if (!name) return res.status(400).json({ ok: false, error: 'no_name' });
+  if (/argon|gemini[\s-]*4\b/i.test(name)) {
+    cdpBridge.activeModelName = name;
+    STATE.activeModel = name;
+    saveState();
+    return res.json({ ok: true, selected: name, cli: true });
+  }
   const result = await cdpBridge.selectModel(name);
+  if (result?.ok) {
+    STATE.activeModel = name;
+    saveState();
+  }
   res.json({ ok: !!result?.ok, result });
 });
 
@@ -854,6 +980,333 @@ app.get('/api/lisan', (req, res) => {
     console.error('Lisan API error:', e.message);
   }
   res.json(DEFAULT_LISAN_SENTENCES);
+});
+
+// 10c. Paid AI-credit overage (bypasses the weekly per-model quota wall)
+app.get('/api/overage', async (req, res) => {
+  res.json(await overageStatus());
+});
+
+app.post('/api/overage', async (req, res) => {
+  const body = req.body || {};
+  let enabled = body.enabled;
+  if (typeof enabled !== 'boolean') {
+    const current = await overageStatus();
+    enabled = !current.useG1Credits;
+  }
+  try {
+    const status = await setOverage(enabled);
+    console.log(`[OVERAGE] useG1Credits=${status.useG1Credits}`);
+    res.json(status);
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// 10d. Gemini 4 via the agy CLI (Gemini 4 is not available through the IDE)
+app.get('/api/agy/models', (req, res) => {
+  res.json({
+    ok: true,
+    agyPath: AGY_BIN,
+    available: fs.existsSync(AGY_BIN),
+    models: Object.entries(AGY_MODELS).map(([id, meta]) => ({ id, ...meta }))
+  });
+});
+
+app.post(['/api/agy/prompt', '/api/gm4/prompt'], async (req, res) => {
+  const { text, model } = req.body || {};
+  if (!text || typeof text !== 'string' || !text.trim()) {
+    return res.status(400).json({ ok: false, error: 'invalid_message' });
+  }
+  const modelId = AGY_MODELS[model] ? model : 'gemini-4-argon-high';
+  const promptText = text.trim();
+
+  const userMsg = { from: 'user', text: promptText, timestamp: new Date().toISOString(), via: 'agy' };
+  STATE.messages.push(userMsg);
+  saveState();
+  broadcast('message_new', userMsg);
+
+  STATE.agent.busy = true;
+  STATE.agent.state = 'executing';
+  broadcast('agent_state', STATE.agent);
+
+  const result = await runAgyPrompt(promptText, modelId);
+
+  let agentMsg;
+  if (result.ok) {
+    agentMsg = {
+      from: 'agent',
+      text: result.stdout || '(no output)',
+      timestamp: new Date().toISOString(),
+      via: 'agy',
+      model: AGY_MODELS[modelId].label
+    };
+  } else {
+    const detail = result.lowCredit
+      ? 'Overage is ON, but your AI credits balance is too low to cover this turn.\n\nBuy credits: https://antigravity.google/g1-credits'
+      : result.quota
+        ? `Quota wall: ${result.quota}\n\nEnable paid overage (AI credits) in the Models tab, or wait for the bucket to refill.`
+        : (result.error || result.stderr || result.text || 'agy run failed');
+    agentMsg = {
+      from: 'agent',
+      text: `⚠️ agy (${AGY_MODELS[modelId].label}) could not complete this turn.\n\n${detail}`,
+      timestamp: new Date().toISOString(),
+      via: 'agy',
+      error: true,
+      model: AGY_MODELS[modelId].label
+    };
+  }
+
+  STATE.messages.push(agentMsg);
+  saveState();
+  broadcast('message_new', agentMsg);
+
+  STATE.agent.busy = false;
+  STATE.agent.state = 'idle';
+  STATE.agent.lastActive = new Date().toISOString();
+  broadcast('agent_state', STATE.agent);
+
+  res.json({ ok: result.ok, model: modelId, result });
+});
+
+// 10e. Quota and limits telemetry
+function formatMsDuration(ms) {
+  if (ms <= 0) return 'Reset reached';
+  const totalSec = Math.floor(ms / 1000);
+  const hours = Math.floor(totalSec / 3600);
+  const mins = Math.floor((totalSec % 3600) / 60);
+  const secs = totalSec % 60;
+  if (hours > 0) return `${hours}h ${mins}m`;
+  if (mins > 0) return `${mins}m ${secs}s`;
+  return `${secs}s`;
+}
+
+let cachedLiveQuota = null;
+let lastLiveQuotaFetch = 0;
+
+async function fetchLiveQuotaFromLS() {
+  const now = Date.now();
+  if (cachedLiveQuota && (now - lastLiveQuotaFetch < 5000)) {
+    return cachedLiveQuota;
+  }
+  try {
+    const { execSync } = await import('child_process');
+
+    const pids = execSync('pgrep -f language_server_linux_x64', { encoding: 'utf8' })
+      .trim().split('\n').filter(Boolean);
+
+    for (const pid of pids) {
+      try {
+        const cmdline = execSync(`cat /proc/${pid}/cmdline`, { encoding: 'utf8' }).replace(/\0/g, ' ');
+        const tokenMatch = cmdline.match(/--csrf_token\s+([a-f0-9-]+)/i) || cmdline.match(/--csrf_token=([a-f0-9-]+)/i);
+        if (!tokenMatch) continue;
+        const csrfToken = tokenMatch[1];
+
+        const ssOut = execSync(`ss -tulpn -H 2>/dev/null | grep "pid=${pid},"`, { encoding: 'utf8' });
+        const ports = [];
+        for (const line of ssOut.split('\n')) {
+          const m = line.match(/127\.0\.0\.1:(\d+)/);
+          if (m) {
+            const port = parseInt(m[1], 10);
+            if (port !== 9222 && !ports.includes(port)) ports.push(port);
+          }
+        }
+
+        for (const port of ports) {
+          try {
+            const res = await new Promise((resolve, reject) => {
+              const req = https.request({
+                hostname: '127.0.0.1',
+                port,
+                path: '/exa.language_server_pb.LanguageServerService/RetrieveUserQuotaSummary',
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'x-codeium-csrf-token': csrfToken
+                },
+                rejectUnauthorized: false,
+                timeout: 1500
+              }, (resp) => {
+                let data = '';
+                resp.on('data', chunk => data += chunk);
+                resp.on('end', () => {
+                  if (resp.statusCode === 200) {
+                    try { resolve(JSON.parse(data)); } catch (e) { reject(e); }
+                  } else { reject(new Error('Status ' + resp.statusCode)); }
+                });
+              });
+              req.on('error', reject);
+              req.on('timeout', () => { req.destroy(); reject(new Error('Timeout')); });
+              req.write('{}');
+              req.end();
+            });
+
+            if (res && res.response && res.response.groups) {
+              const groups = res.response.groups.map(g => ({
+                displayName: g.displayName,
+                description: g.description,
+                buckets: (g.buckets || []).map(b => ({
+                  bucketId: b.bucketId,
+                  displayName: b.displayName,
+                  window: b.window,
+                  remainingFraction: b.remainingFraction,
+                  percentage: typeof b.remainingFraction === 'number' ? Math.round(b.remainingFraction * 100) : 100,
+                  resetTime: b.resetTime,
+                  description: b.description
+                }))
+              }));
+
+              const geminiGroup = groups.find(g => g.displayName.toLowerCase().includes('gemini')) || groups[0];
+              const geminiWeekly = geminiGroup?.buckets.find(b => b.window === 'weekly' || b.bucketId.includes('weekly'));
+              const geminiDaily = geminiGroup?.buckets.find(b => b.window === '5h' || b.bucketId.includes('5h') || b.bucketId.includes('daily'));
+
+              cachedLiveQuota = {
+                fetchedAt: new Date().toISOString(),
+                groups,
+                summaryText: res.response.description,
+                dailyPercentLeft: geminiDaily ? geminiDaily.percentage : 100,
+                weeklyPercentLeft: geminiWeekly ? geminiWeekly.percentage : 100,
+                dailyResetTime: geminiDaily ? geminiDaily.resetTime : null,
+                weeklyResetTime: geminiWeekly ? geminiWeekly.resetTime : null,
+                geminiDailyDesc: geminiDaily ? geminiDaily.description : null,
+                geminiWeeklyDesc: geminiWeekly ? geminiWeekly.description : null
+              };
+              lastLiveQuotaFetch = now;
+              return cachedLiveQuota;
+            }
+          } catch (e) {}
+        }
+      } catch (err) {}
+    }
+  } catch (e) {}
+  return cachedLiveQuota;
+}
+
+async function getQuotaStatus() {
+  const logBase = join(HOME_DIR, '.config', 'Antigravity IDE', 'logs');
+  function findLsMainFiles(dir) {
+    let results = [];
+    try {
+      const entries = fs.readdirSync(dir, { withFileTypes: true });
+      for (const e of entries) {
+        const full = join(dir, e.name);
+        if (e.isDirectory()) {
+          results = results.concat(findLsMainFiles(full));
+        } else if (e.name.includes('ls-main')) {
+          results.push(full);
+        }
+      }
+    } catch (e) {}
+    return results;
+  }
+
+  const files = findLsMainFiles(logBase);
+  const filesWithStats = files.map(f => {
+    try {
+      const s = fs.statSync(f);
+      return { path: f, mtime: s.mtimeMs, name: basename(f) };
+    } catch (e) {
+      return { path: f, mtime: 0, name: basename(f) };
+    }
+  });
+  filesWithStats.sort((a,b) => b.mtime - a.mtime);
+  const activeLogObj = filesWithStats.find(f => f.name === 'ls-main.log') || filesWithStats[0];
+
+  let activeLogContent = '';
+  if (activeLogObj) {
+    try { activeLogContent = fs.readFileSync(activeLogObj.path, 'utf8'); } catch (e) {}
+  }
+
+  const lastSuccessMatch = Array.from(activeLogContent.matchAll(/(20\d{2}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}\.\d{3}).*?streamGenerateContent.*?ResponseID:\s*([^\s\n]+)/g)).pop();
+  const lastActiveErrorMatch = Array.from(activeLogContent.matchAll(/(20\d{2}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}\.\d{3}).*?(RESOURCE_EXHAUSTED.*?|Individual quota reached.*?|exhausted your capacity.*?|No capacity available.*?)(?:\n|$)/gi)).pop();
+
+  const isCurrentlyHealthy = !lastActiveErrorMatch || (lastSuccessMatch && lastSuccessMatch[1] > lastActiveErrorMatch[1]);
+
+  const regex = /(20\d{2}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}\.\d{3}).*?(RESOURCE_EXHAUSTED.*?|Individual quota reached.*?|exhausted your capacity.*?|No capacity available.*?)(?:\n|$)/gi;
+  let allMatches = [];
+  for (const f of files) {
+    try {
+      const content = fs.readFileSync(f, 'utf8');
+      let m;
+      while ((m = regex.exec(content)) !== null) {
+        allMatches.push({ file: basename(f), time: m[1], line: m[0].trim() });
+      }
+    } catch (e) {}
+  }
+  allMatches.sort((a,b) => a.time.localeCompare(b.time));
+
+  let resetInfo = null;
+  let isExhausted = !isCurrentlyHealthy;
+
+  const relevantError = !isCurrentlyHealthy ? lastActiveErrorMatch : null;
+  if (relevantError) {
+    const errorLine = relevantError[0];
+    const resetMatch = errorLine.match(/(?:Resets in|reset after)\s+([0-9hms.]+)/i);
+    if (resetMatch) {
+      const str = resetMatch[1];
+      let totalMs = 0;
+      const h = str.match(/(\d+)h/i);
+      const m = str.match(/(\d+)m/i);
+      const s = str.match(/(\d+)s/i);
+      if (h) totalMs += parseInt(h[1]) * 3600 * 1000;
+      if (m) totalMs += parseInt(m[1]) * 60 * 1000;
+      if (s) totalMs += parseInt(s[1]) * 1000;
+
+      const eventDate = new Date(relevantError[1].replace(' ', 'T'));
+      const resetDate = new Date(eventDate.getTime() + totalMs);
+      const remainingMs = resetDate.getTime() - Date.now();
+
+      resetInfo = {
+        originalDuration: str,
+        eventTime: relevantError[1],
+        resetTimestamp: resetDate.toISOString(),
+        resetDateFormatted: resetDate.toLocaleString('en-US', { timeZoneName: 'short' }),
+        remainingMs: remainingMs,
+        remainingFormatted: remainingMs > 0 ? formatMsDuration(remainingMs) : 'Reset reached'
+      };
+      if (remainingMs <= 0) {
+        isExhausted = false;
+      }
+    }
+  }
+
+  const [overage, liveQuota] = await Promise.all([
+    overageStatus(),
+    fetchLiveQuotaFromLS()
+  ]);
+
+  return {
+    isExhausted,
+    status: isExhausted ? 'exhausted' : 'operational',
+    activeLogFile: activeLogObj ? activeLogObj.name : null,
+    lastSuccessTime: lastSuccessMatch ? lastSuccessMatch[1] : null,
+    lastResponseId: lastSuccessMatch ? lastSuccessMatch[2] : null,
+    activeModel: cdpBridge.activeModelName || 'Gemini 4 (High)',
+    latestActiveError: relevantError ? { time: relevantError[1], line: relevantError[0].trim() } : null,
+    resetInfo,
+    recentEvents: allMatches.slice(-8).reverse().map(e => ({
+      ...e,
+      resolved: isCurrentlyHealthy || (lastSuccessMatch && lastSuccessMatch[1] > e.time)
+    })),
+    overage,
+    liveQuota,
+    dailyPercentLeft: liveQuota?.dailyPercentLeft ?? 100,
+    weeklyPercentLeft: liveQuota?.weeklyPercentLeft ?? 100,
+    dailyResetTime: liveQuota?.dailyResetTime ?? null,
+    weeklyResetTime: liveQuota?.weeklyResetTime ?? null,
+    geminiDailyDesc: liveQuota?.geminiDailyDesc ?? null,
+    geminiWeeklyDesc: liveQuota?.geminiWeeklyDesc ?? null,
+    serverTime: new Date().toISOString()
+  };
+}
+
+app.get('/api/quota', async (req, res) => {
+  try {
+    const q = await getQuotaStatus();
+    res.json({ ok: true, ...q });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
 });
 
 // 11. Stats, Status, History, Upload

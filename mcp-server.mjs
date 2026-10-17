@@ -420,13 +420,22 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
             case 'list_models': {
                 const models = [
-                    '0: Gemini 3.8 Flash ⚡ - key: gemini-3.8-flash',
-                    '1: Gemini 3.7 Flash ⚡ - key: gemini-3.7-flash',
-                    '2: Gemini 3.1 Pro (High) - key: gemini-pro-high',
-                    '3: Gemini 3.1 Pro (Low) - key: gemini-pro-low',
-                    '4: Claude Sonnet 4.6 (Thinking) - key: claude-sonnet-thinking',
-                    '5: Claude Opus 4.6 (Thinking) 💎 - key: claude-opus-thinking',
-                    '6: GPT-OSS 120B (Medium) - key: gpt-oss-120b'
+                    '0: Gemini 4 (High) 🚀 - key: gemini-4-argon-high',
+                    '1: Gemini 4 (Medium) 🚀 - key: gemini-4-argon-medium',
+                    '2: Gemini 4 (Low) 🚀 - key: gemini-4-argon-low',
+                    '3: Claude Opus 5.5 (High) 💎 - key: claude-opus-5.5-high',
+                    '4: Claude Opus 5.5 (Medium) 💎 - key: claude-opus-5.5-medium',
+                    '5: Claude Sonnet 5.5 (High) ⚡ - key: claude-sonnet-5.5-high',
+                    '6: Claude Sonnet 5.5 (Medium) ⚡ - key: claude-sonnet-5.5-medium',
+                    '7: Gemini 3.8 Flash (High) ⚡ - key: gemini-3.8-flash-high',
+                    '8: Gemini 3.8 Flash (Medium) ⚡ - key: gemini-3.8-flash-medium',
+                    '9: Gemini 3.7 Flash (High) ⚡ - key: gemini-3.7-flash-high',
+                    '10: Gemini 3.7 Flash (Medium) ⚡ - key: gemini-3.7-flash-medium',
+                    '11: Gemini 3.6 Flash (High) ⚡ - key: gemini-3.6-flash-high',
+                    '12: Gemini 3.6 Flash (Medium) ⚡ - key: gemini-3.6-flash-medium',
+                    '13: Gemini 3.1 Pro (High) - key: gemini-pro-high',
+                    '14: Gemini 3.1 Pro (Low) - key: gemini-pro-low',
+                    '15: GPT-OSS 120B (Medium) - key: gpt-oss-120b'
                 ];
                 return { content: [{ type: 'text', text: 'Available Models:\n' + models.join('\n') }] };
             }
