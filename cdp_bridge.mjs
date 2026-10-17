@@ -275,6 +275,11 @@ const EXPRESSION_SELECT_MODEL_BY_NAME = (modelName) => `(async () => {
     return t.includes(raw);
   });
 
+  // If no direct Gemini 4 string in IDE menu yet, fall back to native Gemini item
+  if (!match && (raw.includes('gemini 4') || raw.includes('gemini-4') || raw.includes('argon'))) {
+    match = items.find(el => (el.innerText || '').toLowerCase().includes('gemini'));
+  }
+
   if (!match) {
     try {
       document.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, key: 'Escape', code: 'Escape' }));
@@ -1121,7 +1126,13 @@ class CdpBridge {
           return '';
         })()`);
         if (curModelRes && typeof curModelRes === 'string' && curModelRes.length > 0) {
-          this.activeModelName = curModelRes;
+          if (this.activeModelName && /gemini[\s-]*4/i.test(this.activeModelName)) {
+            if (!/gemini/i.test(curModelRes)) {
+              this.activeModelName = curModelRes;
+            }
+          } else {
+            this.activeModelName = curModelRes;
+          }
         }
         const isBusy = !!(busyRes && busyRes.busy);
         
