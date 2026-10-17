@@ -13,7 +13,6 @@ import { cdpBridge } from './cdp_bridge.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PORT = parseInt(process.env.PORT || '8787');
-const SECONDARY_PORT = parseInt(process.env.SECONDARY_PORT || '8899');
 const DATA_DIR = join(__dirname, 'data');
 const STATE_FILE = join(DATA_DIR, 'state.json');
 const UPLOAD_DIR = '/tmp/ag_uploads';
@@ -1444,18 +1443,6 @@ async function main() {
     console.log(`🚀 GRAVITYR3 RUNNING ON PORT ${PORT} [TARGET: ${cdpBridge.currentTarget.toUpperCase()}]`);
     cdpBridge.connect();
   });
-
-  if (SECONDARY_PORT && SECONDARY_PORT !== PORT) {
-    const secondaryServer = createServer(app);
-    secondaryServer.on('upgrade', (request, socket, head) => {
-      wss.handleUpgrade(request, socket, head, (ws) => {
-        wss.emit('connection', ws, request);
-      });
-    });
-    secondaryServer.listen(SECONDARY_PORT, '0.0.0.0', () => {
-      console.log(`🚀 GRAVITYR3 DUAL-PORT ACTIVE ON PORT ${SECONDARY_PORT} (HTTP + WebSocket)`);
-    });
-  }
 }
 
 main();
