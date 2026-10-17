@@ -194,12 +194,9 @@ const EXPRESSION_GET_MODELS = `(() => {
   }
 
   const models = [
-    { id: 'gemini-4-high', name: 'Gemini 4 (High)', tag: 'Frontier 🚀', desc: 'Google frontier Gemini 4 Argon reasoning (1.00)' },
-    { id: 'gemini-4-medium', name: 'Gemini 4 (Medium)', tag: 'Frontier 🚀', desc: 'Balanced Gemini 4 Argon reasoning (0.50)' },
-    { id: 'gemini-4-low', name: 'Gemini 4 (Low)', tag: 'Frontier 🚀', desc: 'Fast Gemini 4 Argon reasoning (0.10)' },
-    { id: 'gemini-4-argon-high', name: 'Gemini 4 Argon High', tag: 'Frontier 🚀', desc: 'Maximum Argon reasoning (1.00)' },
-    { id: 'gemini-4-argon-medium', name: 'Gemini 4 Argon Medium', tag: 'Frontier 🚀', desc: 'Balanced Argon reasoning (0.50)' },
-    { id: 'gemini-4-argon-low', name: 'Gemini 4 Argon Low', tag: 'Frontier 🚀', desc: 'Fast Argon reasoning (0.10)' },
+    { id: 'gemini-4-high', name: 'Gemini 4 (High)', tag: 'Frontier 🚀', desc: 'Google frontier Gemini 4 reasoning (1.00)' },
+    { id: 'gemini-4-medium', name: 'Gemini 4 (Medium)', tag: 'Frontier 🚀', desc: 'Balanced Gemini 4 reasoning (0.50)' },
+    { id: 'gemini-4-low', name: 'Gemini 4 (Low)', tag: 'Frontier 🚀', desc: 'Fast Gemini 4 reasoning (0.10)' },
     { id: 'claude-opus-5.5-high', name: 'Claude Opus 5.5 High', tag: 'Frontier 💎', desc: 'Maximum cognitive ceiling & frontier reasoning (1.00)' },
     { id: 'claude-opus-5.5-medium', name: 'Claude Opus 5.5 Medium', tag: 'Frontier 💎', desc: 'Balanced frontier reasoning (0.50)' },
     { id: 'claude-opus-5.5-low', name: 'Claude Opus 5.5 Low', tag: 'Frontier 💎', desc: 'Fast frontier reasoning (0.10)' },
@@ -263,6 +260,9 @@ const EXPRESSION_SELECT_MODEL_BY_NAME = (modelName) => `(async () => {
   // Find matching family
   let match = items.find(el => {
     const t = (el.innerText || '').toLowerCase();
+    if (raw.includes('gemini 4') || raw.includes('gemini-4') || raw.includes('argon')) {
+      return t.includes('gemini 4') || t.includes('argon') || t.includes('gemini-4');
+    }
     if (raw.includes('opus 5.5') || raw.includes('opus-5.5')) return t.includes('opus 5.5') || t.includes('opus');
     if (raw.includes('sonnet 5.5') || raw.includes('sonnet-5.5')) return t.includes('sonnet 5.5') || t.includes('sonnet');
     if (raw.includes('opus')) return t.includes('opus');
@@ -1121,9 +1121,7 @@ class CdpBridge {
           return '';
         })()`);
         if (curModelRes && typeof curModelRes === 'string' && curModelRes.length > 0) {
-          if (!/argon|gemini[\s-]*4\b/i.test(this.activeModelName)) {
-            this.activeModelName = curModelRes;
-          }
+          this.activeModelName = curModelRes;
         }
         const isBusy = !!(busyRes && busyRes.busy);
         
@@ -1299,10 +1297,6 @@ class CdpBridge {
   }
 
   async selectModel(name) {
-    if (/argon|gemini[\s-]*4\b/i.test(name)) {
-      this.activeModelName = name;
-      return { ok: true, selected: name, cli: true };
-    }
     const res = await this.evaluate(EXPRESSION_SELECT_MODEL_BY_NAME(name));
     if (res && res.ok) {
       this.activeModelName = name;

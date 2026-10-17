@@ -729,12 +729,6 @@ app.get('/api/models', async (req, res) => {
 app.post('/api/models/select', async (req, res) => {
   const { name } = req.body;
   if (!name) return res.status(400).json({ ok: false, error: 'no_name' });
-  if (/argon|gemini[\s-]*4\b/i.test(name)) {
-    cdpBridge.activeModelName = name;
-    STATE.activeModel = name;
-    saveState();
-    return res.json({ ok: true, selected: name, cli: true });
-  }
   const result = await cdpBridge.selectModel(name);
   if (result?.ok) {
     STATE.activeModel = name;

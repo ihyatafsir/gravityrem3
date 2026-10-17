@@ -31,7 +31,7 @@ const state = {
 
 // Gemini 4 / Argon exists behind the agy CLI engine.
 function isCliModel(name) {
-  return /argon|gemini[\s-]*4\b/i.test(name || "");
+  return false;
 }
 
 function cliModelId(name) {
@@ -46,7 +46,6 @@ function cliModelId(name) {
 function formatShortModelName(name) {
   if (!name) return "Gemini 4 (High)";
   let short = "Gemini 4";
-  const isCli = /gemini[\s-]*4|argon/i.test(name || "");
   if (/gemini[\s-]*4/i.test(name) || /argon/i.test(name)) short = "Gemini 4";
   else if (name.includes("Opus 5.5") || (name.includes("Opus") && name.includes("5.5"))) short = "Opus 5.5";
   else if (name.includes("Sonnet 5.5") || (name.includes("Sonnet") && name.includes("5.5"))) short = "Sonnet 5.5";
@@ -87,23 +86,10 @@ const MODEL_FAMILIES = [
     name: "Gemini 4",
     tag: "Frontier 🚀",
     desc: "Google frontier Gemini 4 (Argon) flagship reasoning engine with deep multi-pass logic.",
-    cli: true,
     tiers: [
       { id: "gemini-4-high", name: "High", fullName: "Gemini 4 (High)", desc: "Maximum Gemini 4 reasoning (1.00)" },
       { id: "gemini-4-medium", name: "Medium", fullName: "Gemini 4 (Medium)", desc: "Balanced Gemini 4 reasoning (0.50)" },
       { id: "gemini-4-low", name: "Low", fullName: "Gemini 4 (Low)", desc: "Fast Gemini 4 reasoning (0.10)" }
-    ]
-  },
-  {
-    id: "gemini-4-argon",
-    name: "Gemini 4 Argon",
-    tag: "CLI ⚡",
-    desc: "Direct Argon model identifier routed via the agy CLI engine.",
-    cli: true,
-    tiers: [
-      { id: "gemini-4-argon-high", name: "Argon High", fullName: "Gemini 4 Argon High", desc: "Maximum Argon reasoning (1.00)" },
-      { id: "gemini-4-argon-medium", name: "Argon Medium", fullName: "Gemini 4 Argon Medium", desc: "Balanced Argon reasoning (0.50)" },
-      { id: "gemini-4-argon-low", name: "Argon Low", fullName: "Gemini 4 Argon Low", desc: "Fast Argon reasoning (0.10)" }
     ]
   },
   {
